@@ -72,7 +72,7 @@ The backend gateway runs on **http://localhost:8080**.
 
 ## 🧬 Machine Learning
 
-- **Training data:** NHANES 1999–2020, UCI Pima, BRFSS  
+- **Training data:**  BRFSS2015
 - **Models:** Logistic Regression & Gradient Boosted Trees (XGBoost)  
 - **Evaluation metrics:** AUROC, AUPRC, Brier score, calibration error  
 - **Serving format:** ONNX  
@@ -116,8 +116,8 @@ This software is **not a certified medical device** and must not be used for cli
 
 ## 👥 Authors
 - **Team:** Software Engineering Project (Silesian University of Technology)  
-- **Contact:** <piotrek1459@gmail.com>
-
+- **Contact:** <piotrek1459@gmail.com>,
+               <jeremiszcotka7@gmail.com>
 ---
 
 **DiabRisk** — empowering early awareness through open, interpretable machine learning.
