@@ -5,7 +5,7 @@
 
 ---
 
-## 1  Core Entities
+## 1  Core Entities $$
 
 | Term | Type | Definition | Notes / Synonyms |
 |------|------|-------------|------------------|
