@@ -11,7 +11,7 @@ It publishes model cards, allows users to explore feature contributions, and sto
 
 ## 2  Problem Statement
 Worldwide, over 400 million adults have diabetes, yet many remain undiagnosed until complications appear.  
-Early identification of risk through simple metrics such as **age, BMI, blood pressure, and fasting glucose** can guide lifestyle interventions that significantly delay or prevent T2DM.  
+Early identification of risk through simple metrics such as **age, BMI, blood pressure, and choresterol level** can guide lifestyle interventions that significantly delay or prevent T2DM.  
 Existing solutions either:
 - require integration with closed electronic-health-record systems,  
 - hide model details, or  
@@ -25,7 +25,7 @@ Existing solutions either:
 | Aspect | DiabRisk |
 |---------|-----------|
 | **Target users** | Students, health-care trainees, and individuals tracking metabolic health |
-| **Need** | Quick estimation of 3-year diabetes risk from easily available metrics |
+| **Need** | Quick estimation of diabetes risk propability from easily available metrics |
 | **Product type** | Web application (Svelte frontend + Go/Python microservices backend) |
 | **Value proposition** | Open, explainable ML model with personal report history |
 | **Primary benefit** | Early awareness and self-education—not diagnosis |
@@ -49,14 +49,8 @@ Excluded from Phase 1:
 ## 5  Machine-Learning Component
 **Objective** – Binary classification: predict current or near-future T2DM status.
 
-**Datasets**
-- **NHANES (1999–2020)** — comprehensive U.S. population health survey.  
-  Labels derived from *HbA1c ≥ 6.5 %* or *fasting glucose ≥ 126 mg/dL*.
-- **UCI Pima Indians Diabetes** — baseline for prototyping.  
+**Datasets** 
 - **CDC BRFSS** — large self-reported dataset for external validation.
-
-**Feature set**
-Demographics (age, sex), anthropometrics (BMI, waist), vitals (SBP, DBP), basic labs (glucose, HbA1c, HDL, LDL, TG), lifestyle flags (smoking, activity).
 
 **Models**
 - Logistic Regression (baseline, interpretable)
