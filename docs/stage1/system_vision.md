@@ -93,21 +93,21 @@ event-bus (NATS) – async events (report requested → generate)
 ---
 
 ## 8  Functional Goals (≤ 20 use cases)
-1. Submit Assessment (anonymous)  
-2. View Risk Result  
-3. Download Report (PDF)  
-4. Register / Sign In  
-5. Save Assessment to Account  
-6. List Past Assessments  
-7. Delete Assessment  
-8. Export All Assessments (CSV/JSON)  
-9. View Model Version and Metrics  
-10. Generate Explanations  
-11. View Calibration Plot  
-12. Delete Account & Data  
-13. Health Check (Admin)  
-14. Rate-limit Handling  
-15. Legal Disclaimer Acknowledgement  
+1. Submit Assessment (anonymous): Allow users to input health data through an intuitive web form or CSV/JSON, including fields for age, BMI, blood pressure, and cholesterol levels, without requiring authentication. The system will validate inputs in real-time and provide an immediate risk score upon submission.
+2. View Risk Result: Display the calculated diabetes risk score on a results page, accompanied by a brief explanation of contributing factors and a confidence level for the prediction.
+3. Download Report (PDF): Generate and download a detailed PDF report containing the risk score, calibration plot, and feature contributions. The report will include user-provided data and a timestamp for reference.
+4. Register / Sign In: Enable user registration and login via Google OAuth. The system will ensure secure authentication and session management.
+5. Save Assessment to Account: Allow authenticated users to save their assessments for future reference. Saved assessments will be linked to the user’s account and stored securely in the database.
+6. List Past Assessments: Provide a history view for authenticated users to browse their previously saved assessments, with options to sort and filter by date or risk score.
+7. Delete Assessment: Allow users to delete individual assessments from their account history. Deletion will be permanent and comply with GDPR guidelines.
+8. Export All Assessments (CSV/JSON): Enable users to export their entire assessment history in CSV or JSON format, including all input data and corresponding risk scores.
+9. View Model Version and Metrics: Display the version of the ML model used for predictions, along with key performance metrics such as AUROC, AUPRC, and calibration error, on a dedicated information page.
+10. Generate Explanations: Provide detailed explanations for the risk score, including the impact of individual health metrics. Explanations will be presented in a user-friendly format, such as bar charts or textual summaries.
+11. View Calibration Plot: Show a visual calibration plot to illustrate the reliability of the model's predictions. The plot will be interactive, allowing users to explore different probability thresholds.
+12. Delete Account & Data: Allow users to permanently delete their account and all associated data in compliance with GDPR. The system will provide a confirmation step to prevent accidental deletions.
+13. Health Check (Admin): Provide an admin-only endpoint to monitor the health and status of backend services, including database connectivity and API response times.
+14. Rate-limit Handling: Implement mechanisms to prevent abuse by limiting the number of requests per user/IP. The system will display appropriate error messages when rate limits are exceeded.
+15. Legal Disclaimer Acknowledgement: Require users to acknowledge a legal disclaimer before using the system, emphasizing its educational purpose. The disclaimer will appear as a mandatory step during the first use or registration process.
 
 ---
 
