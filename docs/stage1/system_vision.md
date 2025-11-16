@@ -38,6 +38,7 @@ The system covers:
 2. ML inference that produces a probability of developing T2DM.  
 3. Generation of a PDF report containing score, calibration chart, and explanation.  
 4. Optional user authentication to store past assessments and export data.
+5. Providing optimal ideas how to lower ilness probability 
 
 Excluded from Phase 1:
 - EHR integration or real medical certification,
@@ -49,8 +50,8 @@ Excluded from Phase 1:
 ## 5  Machine-Learning Component
 **Objective** – Binary classification: predict current or near-future T2DM status.
 
-**Datasets** 
-- **CDC BRFSS** — large self-reported dataset for external validation.
+**Dataset** 
+- **diabetes_012_health_indicators_BRFSS2015** — large self-reported dataset for external validation.
 
 **Models**
 - Logistic Regression (baseline, interpretable)
