@@ -73,11 +73,20 @@ The backend gateway runs on **http://localhost:8080**.
 
 ## 🧬 Machine Learning
 
-- **Training data:**  BRFSS2015
-- **Models:** Logistic Regression & Gradient Boosted Trees (XGBoost)  
-- **Evaluation metrics:** AUROC, AUPRC, Brier score, calibration error  
-- **Serving format:** ONNX  
-- **Explainability:** SHAP-like local feature importance  
+- **Training data:** BRFSS 2015 — curated diabetes health indicators dataset  
+- **Model used:** Random Forest Classifier  
+- **Prediction goals:**  
+  - Multiclass diabetes status (0 = healthy, 1 = prediabetes, 2 = diabetes)  
+  - Estimated risk presented also as a **percentage probability**  
+- **Preprocessing:**  
+  - Raw features preserved for recommendation logic  
+  - Scaled numerical features (BMI, MentHlth, PhysHlth) used for model training   
+- **Recommendation engine:**  
+  - Generates simple lifestyle-oriented suggestions based on raw patient data  
+  - Uses rule-based logic (e.g., high BMI, no physical activity, poor diet)
+- **Model training setup:**  
+  - Stratified train/test split  
+  - Processed datasets stored as CSV (`X_train_processed`, `X_test_processed`, etc.)
 
 Model artifacts and reproducible training scripts are located in `ml/`.  
 Each model version is accompanied by a **model card** documenting performance and dataset provenance.
