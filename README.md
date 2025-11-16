@@ -24,7 +24,8 @@ The project demonstrates how interpretable **machine learning** can be integrate
 - 🧾 **PDF report generation** and download  
 - 🔐 **Optional login** to save personal assessment history  
 - 📂 **Data export** (CSV/JSON) and account deletion for GDPR compliance  
-- 🧠 **Transparent model card** documenting dataset, metrics, and bias checks  
+- 🧠 **Transparent model card** documenting dataset, metrics, and bias checks 
+- 💌 **Predictions** providing possible life changes to lover a given prediction 
 
 ---
 
