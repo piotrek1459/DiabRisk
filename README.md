@@ -4,6 +4,18 @@
 The project demonstrates how interpretable **machine learning** can be integrated into a **cloud-native microservices** architecture.
 
 ---
+## Installation
+```
+k3d cluster create diabrisk -p "80:80@loadbalancer"
+```
+
+then
+
+```
+./scripts/install-local-k3d.sh
+```
+
+---
 
 ## 🚀 Overview
 
