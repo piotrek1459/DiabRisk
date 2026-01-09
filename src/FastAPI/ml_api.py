@@ -141,7 +141,7 @@ def predict(req: PredictRequest):
         message="visit  doctor house"
     if p_at_risk>0.80:
         category="high"
-        message="buy a fucking coffin fat nigger"
+        message="you are so ill "
 
     return PredictResponse(
         RiskPercent=p_at_risk,        
