@@ -48,6 +48,7 @@ func main() {
 			return
 		}
 
+		// TODO: Remove and send request to python backend
 		// very rough & fake scoring – just so frontend has something
 		score := 0.0
 		if req.Age > 45 {
