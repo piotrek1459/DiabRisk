@@ -27,6 +27,7 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+.env.local
 .venv
 src/FastAPI/models/*.joblib
 
@@ -48,5 +49,8 @@ Thumbs.db
 
 # Docker
 *.tar
+
+# Kubernetes secrets (local only)
+deploy/k8s/secrets.local.yaml
 models/ 
 *.joblib 

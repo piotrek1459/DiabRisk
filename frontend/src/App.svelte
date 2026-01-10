@@ -54,6 +54,44 @@ const API_BASE = "";
   let loading = false;
   let error: string | null = null;
   let result: any = null;
+  let user: any = null;
+  let checkingAuth = true;
+
+  onMount(async () => {
+    await checkSession();
+  });
+
+  async function checkSession() {
+    try {
+      const res = await fetch(`/auth/session`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        user = await res.json();
+      }
+    } catch (e) {
+      // Not logged in, that's ok
+    } finally {
+      checkingAuth = false;
+    }
+  }
+
+  function loginWithGoogle() {
+    window.location.href = '/auth/google/login';
+  }
+
+  async function logout() {
+    try {
+      await fetch(`/auth/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      user = null;
+      result = null;
+    } catch (e) {
+      console.error('Logout failed:', e);
+    }
+  }
 
   async function submitRisk() {
     loading = true;
@@ -66,6 +104,7 @@ const API_BASE = "";
         headers: {
           "Content-Type": "application/json"
         },
+        credentials: 'include',
         body: JSON.stringify({ features })
       });
 
@@ -93,15 +132,57 @@ const API_BASE = "";
 
 <main class="app">
   <div class="header">
-    <h1>🩺 DiabRisk</h1>
-    <p class="subtitle">Diabetes Risk Assessment Tool</p>
+    <div class="header-left">
+      <h1>🩺 DiabRisk</h1>
+      <p class="subtitle">Diabetes Risk Assessment Tool</p>
+    </div>
+    <div class="header-right">
+      {#if !checkingAuth}
+        {#if user}
+          <div class="user-info">
+            {#if user.picture_url}
+              <img src={user.picture_url} alt={user.full_name} class="avatar" />
+            {/if}
+            <span class="user-name">{user.full_name || user.email}</span>
+            <button on:click={logout} class="logout-btn">Sign Out</button>
+          </div>
+        {:else}
+          <button on:click={loginWithGoogle} class="login-btn">
+            <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              <path fill="none" d="M0 0h48v48H0z"/>
+            </svg>
+            Sign in with Google
+          </button>
+        {/if}
+      {/if}
+    </div>
   </div>
 
-  <div class="intro-card card">
-    <p>Fill in your health information below to estimate your diabetes risk. All fields are required for an accurate assessment.</p>
-  </div>
+  {#if !user && !checkingAuth}
+    <div class="login-required card">
+      <h2>🔐 Authentication Required</h2>
+      <p>Please sign in with your Google account to use the DiabRisk assessment tool.</p>
+      <button on:click={loginWithGoogle} class="login-btn-large">
+        <svg width="24" height="24" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          <path fill="none" d="M0 0h48v48H0z"/>
+        </svg>
+        Sign in with Google
+      </button>
+    </div>
+  {:else if user}
+    <div class="intro-card card">
+      <p>Fill in your health information below to estimate your diabetes risk. All fields are required for an accurate assessment.</p>
+    </div>
 
-  <form on:submit|preventDefault={submitRisk} class="form-card card">
+    <form on:submit|preventDefault={submitRisk} class="form-card card">
     <h2>Health Information</h2>
     <div class="form-grid">
       {#each Object.keys(features) as key}
@@ -145,6 +226,7 @@ const API_BASE = "";
       </div>
     </section>
   {/if}
+  {/if}
 
   <p class="disclaimer">
     ⚕️ <strong>Medical Disclaimer:</strong> This is an educational demonstration only. Not a medical device and not medical advice. Please consult with healthcare professionals for actual medical assessments.
@@ -166,9 +248,104 @@ const API_BASE = "";
   }
 
   .header {
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 2rem;
     color: white;
+  }
+
+  .header-left {
+    text-align: left;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+  }
+
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    backdrop-filter: blur(10px);
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid white;
+  }
+
+  .user-name {
+    color: white;
+    font-weight: 500;
+  }
+
+  .login-btn, .logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 2px solid white;
+    border-radius: 50px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+  }
+
+  .login-btn:hover, .logout-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .logout-btn {
+    margin-left: 0.5rem;
+  }
+
+  .login-btn-large {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 12px;
+    background: white;
+    color: #1f2937;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .login-btn-large:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .login-required {
+    text-align: center;
+    padding: 3rem 2rem;
+  }
+
+  .login-required h2 {
+    margin-top: 0;
+    color: #1f2937;
+  }
+
+  .login-required p {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
   }
 
   h1 {
