@@ -28,6 +28,7 @@ __pycache__/
 *.pyo
 .env
 .venv
+src/FastAPI/models/*.joblib
 
 # ML
 ml/artifacts/
