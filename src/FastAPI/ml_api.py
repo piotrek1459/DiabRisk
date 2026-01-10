@@ -1,18 +1,35 @@
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
+import os
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from joblib import load
 
 
-# --- ścieżka do modelu (domyślnie jak u Ciebie w repo) ---
-BASE_DIR = Path(__file__).resolve().parents[0]  # jeśli ml_api.py stoi w katalogu serwisu ML
-MODEL_PATH = (BASE_DIR / "models" / "diabrisk_screening.joblib").resolve()
+BASE_DIR = Path(__file__).resolve().parent  # directory containing ml_api.py
 
-# Jeśli u Ciebie serwis ML stoi w innym katalogu, najprościej:
-# MODEL_PATH = Path(__file__).resolve().parents[2] / "models" / "diabrisk_screening.joblib"
+CANDIDATES = [
+    os.environ.get("MODEL_PATH"),                     # 1) explicit override (Docker/Prod)
+    str(BASE_DIR / "models" / "model.joblib"),        # 2) local dev (new name)
+    str(BASE_DIR / "models" / "diabrisk_screening.joblib"),  # 3) local dev (old name)
+    "/opt/models/model.joblib",                       # 4) server default
+]
+
+MODEL_PATH = next(
+    (Path(p).expanduser().resolve() for p in CANDIDATES if p and Path(p).expanduser().exists()),
+    None
+)
+
+if MODEL_PATH is None:
+    raise FileNotFoundError(
+        "Model file not found. Tried: " + ", ".join([p for p in CANDIDATES if p])
+    )
+
+model = load(MODEL_PATH)
+print(f"Loaded model from: {MODEL_PATH}")
+
 
 _artifact: Optional[dict] = None
 
