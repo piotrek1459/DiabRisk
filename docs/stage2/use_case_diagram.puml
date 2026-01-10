@@ -1,0 +1,116 @@
+@startuml DiabRisk Use Case Diagram
+!theme plain
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+title DiabRisk - Use Case Diagram
+
+' Actors
+actor "Anonymous User" as Anonymous
+actor "Registered User" as Registered
+actor "Clinician Reviewer" as Clinician
+actor "System Administrator" as Admin
+
+' Actor Generalization
+Anonymous <|-- Registered
+
+' System Boundary
+rectangle "DiabRisk System" {
+  
+  ' === Core Assessment Use Cases ===
+  usecase "UC-1: Submit\nAnonymous Assessment" as UC1
+  usecase "UC-2: View Risk Result\nwith Visualization" as UC2
+  usecase "UC-15: Acknowledge\nLegal Disclaimer" as UC15
+  usecase "Validate Input Data" as ValidateInput
+  usecase "Execute ML Inference" as MLInference
+  
+  ' === Authentication Use Cases ===
+  usecase "UC-4: Register/Sign In\nvia OAuth" as UC4
+  
+  ' === Authenticated User Use Cases ===
+  usecase "UC-5: Save Assessment\nto Account" as UC5
+  usecase "UC-6: List Past\nAssessments" as UC6
+  usecase "UC-7: Delete Individual\nAssessment" as UC7
+  usecase "UC-12: Delete Account\n& All Data (GDPR)" as UC12
+  
+  ' === Report & Export Use Cases ===
+  usecase "UC-3: Download\nPDF Report" as UC3
+  usecase "UC-8: Export All\nAssessments (CSV/JSON)" as UC8
+  usecase "Generate Report Content" as GenerateReport
+  
+  ' === Advanced Analysis Use Cases ===
+  usecase "UC-9: View Model Version\nand Metrics" as UC9
+  usecase "UC-10: Generate SHAP\nExplanations" as UC10
+  usecase "UC-11: View Calibration\nPlot" as UC11
+  
+  ' === Administrative Use Cases ===
+  usecase "UC-13: Admin Health\nCheck Endpoint" as UC13
+  usecase "UC-14: Rate Limit\nHandling" as UC14
+  
+  ' === Relationships ===
+  
+  ' Anonymous User associations
+  Anonymous --> UC1
+  Anonymous --> UC2
+  Anonymous --> UC15
+  Anonymous --> UC9
+  
+  ' Registered User associations
+  Registered --> UC4
+  Registered --> UC5
+  Registered --> UC6
+  Registered --> UC7
+  Registered --> UC3
+  Registered --> UC8
+  Registered --> UC10
+  Registered --> UC11
+  Registered --> UC12
+  
+  ' Clinician associations
+  Clinician --> UC8 : reviews exported data
+  
+  ' Admin associations
+  Admin --> UC13
+  Admin --> UC14
+  
+  ' Include relationships (mandatory)
+  UC1 ..> UC15 : <<include>>
+  UC1 ..> ValidateInput : <<include>>
+  UC1 ..> MLInference : <<include>>
+  UC2 ..> MLInference : <<include>>
+  UC3 ..> GenerateReport : <<include>>
+  UC5 ..> UC1 : <<include>>
+  
+  ' Extend relationships (optional)
+  UC2 <.. UC10 : <<extend>>
+  UC2 <.. UC11 : <<extend>>
+  UC3 <.. UC10 : <<extend>>
+  
+}
+
+' Notes
+note right of UC1
+  Anonymous users can submit
+  assessments without authentication.
+  Results are ephemeral.
+end note
+
+note right of UC5
+  Authenticated users can save
+  assessments for future reference
+  and tracking.
+end note
+
+note right of UC12
+  GDPR-compliant full deletion
+  of user account and all
+  associated data.
+end note
+
+note bottom of UC10
+  SHAP values provide transparent
+  feature importance explanations
+  for educational purposes.
+end note
+
+@enduml
