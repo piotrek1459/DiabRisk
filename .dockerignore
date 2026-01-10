@@ -1,0 +1,14 @@
+.git
+**/.git
+**/__pycache__
+**/*.pyc
+.venv
+venv
+.env
+.env.*
+*.joblib
+*.pkl
+*.csv
+*.parquet
+*.sqlite
+.DS_Store

@@ -1,0 +1,13 @@
+services:
+  diab-risk-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.ml-api
+    container_name: diab-risk-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_PATH=/models/model.joblib
+    volumes:
+      - /opt/models/model.joblib:/models/model.joblib:ro
+    restart: unless-stopped
