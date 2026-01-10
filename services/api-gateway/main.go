@@ -1,26 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
-
-type RiskRequest struct {
-	Age        int     `json:"age" binding:"required"`
-	BMI        float64 `json:"bmi" binding:"required"`
-	SystolicBP int     `json:"systolic_bp" binding:"required"`
-	Glucose    int     `json:"glucose" binding:"required"`
-	Smoker     bool    `json:"smoker"`
-}
-
-type RiskResponse struct {
-	RiskPercent float64 `json:"risk_percent"`
-	Category    string  `json:"category"` // "low", "medium", "high"
-	Message     string  `json:"message"`
-}
 
 func main() {
 	r := gin.Default()
@@ -40,51 +28,37 @@ func main() {
 		})
 	})
 
-	// For now: dummy risk logic
+	// New /api/risk route to forward requests to ML service
 	r.POST("/api/risk", func(c *gin.Context) {
-		var req RiskRequest
+		var req map[string]interface{}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// TODO: Remove and send request to python backend
-		// very rough & fake scoring – just so frontend has something
-		score := 0.0
-		if req.Age > 45 {
-			score += 20
-		}
-		if req.BMI >= 30 {
-			score += 30
-		}
-		if req.SystolicBP >= 140 {
-			score += 20
-		}
-		if req.Glucose >= 126 {
-			score += 25
-		}
-		if req.Smoker {
-			score += 10
-		}
-		if score > 100 {
-			score = 100
+		// Marshal the request to JSON
+		reqBody, err := json.Marshal(req)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request"})
+			return
 		}
 
-		category := "low"
-		message := "Estimated low risk. Keep up healthy habits."
-		if score >= 33 && score < 66 {
-			category = "medium"
-			message = "Moderate risk. Consider lifestyle improvements and consulting a doctor."
-		} else if score >= 66 {
-			category = "high"
-			message = "High estimated risk. Please consult a medical professional."
+		// Forward the request to the ML service
+		resp, err := http.Post("http://65.109.169.137:8000/predict", "application/json", bytes.NewBuffer(reqBody))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to ML service"})
+			return
+		}
+		defer resp.Body.Close()
+
+		// Read the response from the ML service
+		var mlResponse map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&mlResponse); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse ML service response"})
+			return
 		}
 
-		c.JSON(http.StatusOK, RiskResponse{
-			RiskPercent: score,
-			Category:    category,
-			Message:     message,
-		})
+		c.JSON(http.StatusOK, mlResponse)
 	})
 
 	if err := r.Run(":8080"); err != nil {
