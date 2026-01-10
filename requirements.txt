@@ -1,7 +1,7 @@
 numpy
 joblib
 pandas
-scikit-learn
+scikit-learn==1.7.2
 imblearn
 fastapi
 pydantic
