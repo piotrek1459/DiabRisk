@@ -15,26 +15,33 @@ k3d cluster create "$CLUSTER_NAME" \
   -p "80:80@loadbalancer"
 echo "Cluster created successfully!"
 
-echo "=== Creating Kubernetes secrets ==="
+echo "=== Applying Kubernetes manifests ==="
 
-# Check if OAuth credentials are set
+# Secrets first
+# Always apply postgres-secret from file (non-sensitive dev password)
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+type: Opaque
+stringData:
+  username: diabrisk
+  password: diabrisk_dev_password
+  database: diabrisk
+  url: postgres://diabrisk:diabrisk_dev_password@postgres:5432/diabrisk?sslmode=disable
+EOF
+
+# OAuth secret from environment variables or placeholders
 if [ -z "$GOOGLE_CLIENT_ID" ] || [ -z "$GOOGLE_CLIENT_SECRET" ]; then
   echo "⚠️  WARNING: OAuth credentials not found in environment variables"
-  echo "Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET before running this script:"
-  echo "  export GOOGLE_CLIENT_ID='your-client-id'"
-  echo "  export GOOGLE_CLIENT_SECRET='your-client-secret'"
-  echo ""
-  echo "Using placeholder values from secrets.yaml (authentication will not work)"
-  kubectl apply -f deploy/k8s/secrets.yaml
+  echo "Creating oauth-secret with placeholders (authentication will not work)"
+  kubectl create secret generic oauth-secret \
+    --from-literal=google-client-id="YOUR_GOOGLE_CLIENT_ID_HERE" \
+    --from-literal=google-client-secret="YOUR_GOOGLE_CLIENT_SECRET_HERE" \
+    --from-literal=redirect-url="http://localhost/auth/google/callback"
 else
-  echo "✓ Found OAuth credentials in environment"
-  # Create secrets from environment variables
-  kubectl create secret generic postgres-secret \
-    --from-literal=username=diabrisk \
-    --from-literal=password=diabrisk_dev_password \
-    --from-literal=database=diabrisk \
-    --from-literal=url=postgres://diabrisk:diabrisk_dev_password@postgres:5432/diabrisk?sslmode=disable
-  
+  echo "✓ Creating oauth-secret from environment variables"
   kubectl create secret generic oauth-secret \
     --from-literal=google-client-id="$GOOGLE_CLIENT_ID" \
     --from-literal=google-client-secret="$GOOGLE_CLIENT_SECRET" \
@@ -77,9 +84,6 @@ k3d image import \
   diabrisk-auth:dev
 
 echo "=== Applying Kubernetes manifests ==="
-
-# Secrets first
-kubectl apply -f deploy/k8s/secrets.yaml
 
 # PostgreSQL (needed by other services)
 kubectl apply -f deploy/k8s/postgres.yaml
