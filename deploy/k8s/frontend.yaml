@@ -17,7 +17,7 @@ spec:
       containers:
         - name: frontend
           image: diabrisk-frontend:dev
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Never
           ports:
             - containerPort: 80
 ---
