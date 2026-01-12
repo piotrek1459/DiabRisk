@@ -8,12 +8,8 @@ from pydantic import BaseModel, Field
 from joblib import load
 
 
-<<<<<<< HEAD
 # --- paths & cache ---
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / "models" / "diabrisk_screening.joblib"
-=======
-BASE_DIR = Path(__file__).resolve().parent  # directory containing ml_api.py
 
 CANDIDATES = [
     os.environ.get("MODEL_PATH"),                     # 1) explicit override (Docker/Prod)
@@ -28,13 +24,12 @@ MODEL_PATH = next(
 )
 
 if MODEL_PATH is None:
-    raise FileNotFoundError(
-        "Model file not found. Tried: " + ", ".join([p for p in CANDIDATES if p])
+    raise RuntimeError(
+        "Model file not found. Tried: " + ", ".join(p for p in CANDIDATES if p)
     )
 
 
 
->>>>>>> origin/main
 
 _artifact: Optional[dict] = None
 
