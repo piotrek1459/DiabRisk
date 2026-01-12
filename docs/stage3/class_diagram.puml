@@ -1,0 +1,270 @@
+@startuml DiabRisk Class Diagram
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+title DiabRisk - Domain Model Class Diagram
+
+' Enumerations
+enum UserRole {
+    ANONYMOUS
+    REGISTERED
+    CLINICIAN
+    ADMIN
+}
+
+enum RiskCategory {
+    LOW
+    MEDIUM
+    HIGH
+}
+
+enum ReportFormat {
+    PDF
+    PNG
+}
+
+enum AuditAction {
+    USER_REGISTERED
+    USER_LOGGED_IN
+    ASSESSMENT_SUBMITTED
+    ASSESSMENT_SAVED
+    REPORT_GENERATED
+    DATA_EXPORTED
+    ACCOUNT_DELETED
+}
+
+' ========== Entity Classes ==========
+
+class User <<entity>> {
+    - id: UUID
+    - email: String
+    - role: UserRole
+    - createdAt: DateTime
+    - lastLoginAt: DateTime
+    --
+    + register(email: String): User
+    + authenticate(credentials): AuthSession
+    + deleteAccount(): void
+    + exportData(): File
+}
+
+class Assessment <<entity>> {
+    - id: UUID
+    - userId: UUID
+    - modelVersionId: UUID
+    - createdAt: DateTime
+    - isPersisted: Boolean
+    --
+    + submit(features: Feature[]): Assessment
+    + calculateRisk(): RiskScore
+    + save(user: User): void
+    + generateReport(): Report
+    + explain(): Explanation
+    + delete(): void
+}
+
+class ModelVersion <<entity>> {
+    - id: UUID
+    - version: String
+    - trainedAt: DateTime
+    - auroc: Float
+    - auprc: Float
+    - calibrationError: Float
+    - artifactPath: String
+    - isActive: Boolean
+    --
+    + load(): Model
+    + predict(features: Feature[]): RiskScore
+    + getMetrics(): Map<String, Float>
+}
+
+class Report <<entity>> {
+    - id: UUID
+    - assessmentId: UUID
+    - generatedAt: DateTime
+    - format: ReportFormat
+    - storagePath: String
+    - fileSize: Integer
+    --
+    + generate(assessment: Assessment): Report
+    + download(): File
+    + delete(): void
+}
+
+class AuthSession <<entity>> {
+    - id: UUID
+    - userId: UUID
+    - token: String
+    - createdAt: DateTime
+    - expiresAt: DateTime
+    - ipAddress: String
+    - userAgent: String
+    --
+    + create(user: User): AuthSession
+    + validate(): Boolean
+    + renew(): void
+    + destroy(): void
+}
+
+class AuditLog <<entity>> {
+    - id: UUID
+    - userId: UUID
+    - action: AuditAction
+    - timestamp: DateTime
+    - ipAddress: String
+    - metadata: JSON
+    --
+    + log(user: User, action: AuditAction): AuditLog
+    + query(filters: AuditFilter): List<AuditLog>
+}
+
+' ========== Value Object Classes ==========
+
+class Feature <<value object>> {
+    - name: String
+    - value: Float
+    - unit: String
+    - isValid: Boolean
+    --
+    + validate(): Boolean
+    + normalize(): Float
+}
+
+class RiskScore <<value object>> {
+    - probability: Float
+    - category: RiskCategory
+    - message: String
+    - confidenceInterval: Tuple<Float, Float>
+    --
+    + categorize(probability: Float): RiskCategory
+    + format(): String
+}
+
+class Explanation <<value object>> {
+    - featureImportances: Map<String, Float>
+    - baseValue: Float
+    - method: String
+    --
+    + compute(model, features): Explanation
+    + getTopFeatures(n: Integer): List<Tuple>
+    + visualize(): Chart
+}
+
+class CalibrationCurve <<value object>> {
+    - bins: List<CalibrationBin>
+    - numBins: Integer
+    - ece: Float
+    --
+    + compute(predictions, actuals): CalibrationCurve
+    + plot(): Chart
+}
+
+class CalibrationBin <<value object>> {
+    - predictedProbability: Float
+    - observedFrequency: Float
+    - count: Integer
+}
+
+' ========== Relationships ==========
+
+' R1: User owns Assessment (Aggregation)
+User "1" o-- "0..*" Assessment : owns >
+note on link
+    Reading: User owns many Assessments
+    Anonymous: userId can be NULL
+end note
+
+' R2: User has AuthSession (Composition)
+User "1" *-- "0..1" AuthSession : has >
+note on link
+    Reading: User has at most one
+    active AuthSession
+end note
+
+' R3: User triggers AuditLog (Association)
+User "1" -- "0..*" AuditLog : triggers >
+note on link
+    Reading: User triggers many
+    AuditLog entries
+end note
+
+' R4: Assessment contains Feature (Composition)
+Assessment "1" *-- "21" Feature : contains >
+note on link
+    Reading: Assessment contains
+    exactly 21 Features
+end note
+
+' R5: Assessment produces RiskScore (Composition)
+Assessment "1" *-- "1" RiskScore : produces >
+note on link
+    Reading: Assessment produces
+    one RiskScore
+end note
+
+' R6: Assessment uses ModelVersion (Association)
+Assessment "*" --> "1" ModelVersion : uses >
+note on link
+    Reading: Many Assessments
+    use one ModelVersion
+end note
+
+' R7: Assessment generates Report (Aggregation)
+Assessment "1" o-- "0..1" Report : generates >
+note on link
+    Reading: Assessment generates
+    optional Report
+end note
+
+' R8: Assessment explains Explanation (Composition)
+Assessment "1" *-- "0..1" Explanation : has >
+note on link
+    Reading: Assessment has
+    optional Explanation
+end note
+
+' R9: Report includes CalibrationCurve (Composition)
+Report "1" *-- "1" CalibrationCurve : includes >
+
+' CalibrationCurve contains CalibrationBin
+CalibrationCurve "1" *-- "10" CalibrationBin : contains >
+
+' Enum associations
+User --> UserRole : role
+RiskScore --> RiskCategory : category
+Report --> ReportFormat : format
+AuditLog --> AuditAction : action
+
+' ========== Layout hints ==========
+User -[hidden]down- Assessment
+Assessment -[hidden]down- Feature
+ModelVersion -[hidden]down- Report
+Feature -[hidden]right- RiskScore
+
+' Notes
+note top of Assessment
+    Aggregate Root
+    Coordinates assessment workflow
+    Ensures 21 features constraint
+end note
+
+note top of Feature
+    Value Object
+    Immutable health parameter
+    No identity
+end note
+
+note top of RiskScore
+    Value Object
+    Immutable result
+    Categorizes probability
+end note
+
+note bottom of AuditLog
+    Immutable event log
+    GDPR compliance
+    Survives user deletion
+end note
+
+@enduml

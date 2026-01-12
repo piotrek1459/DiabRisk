@@ -4,40 +4,50 @@
 The project demonstrates how interpretable **machine learning** can be integrated into a **cloud-native microservices** architecture.
 
 ---
-## Installation
-```
-k3d cluster create diabrisk -p "80:80@loadbalancer"
-```
+## 🚀 Quick Start (Local Kubernetes)
 
-then
+**Requirements:** Docker, k3d, kubectl
 
-```
+```bash
+# Deploy all services (builds images, applies manifests, runs migrations)
 ./scripts/install-local-k3d.sh
 ```
 
----
-
-## 🚀 Overview
-
-| Component | Technology | Purpose |
-|------------|-------------|----------|
-| **Frontend** | [Svelte](https://svelte.dev/) | Minimal SPA for data entry and result visualization |
-| **Backend** | [Go (Gin/Fiber)](https://go.dev/) | API gateway, auth, data, and reporting services |
-| **ML Service** | [Python + FastAPI](https://fastapi.tiangolo.com/) | Inference using ONNX model |
-| **Database** | PostgreSQL | Persistent storage for users and assessments |
-| **Architecture** | Microservices + REST + Docker | Scalable, modular design |
-| **Deployment** | Docker Compose → Kubernetes | Cloud-ready setup for later stages |
+Then open **http://localhost** to access the application with Google OAuth authentication.
 
 ---
 
-## 🎯 Core Features
-- ⚙️ **ML-powered risk prediction** for Type 2 diabetes  
-- 📊 **Explainable output** (per-feature importance, calibration chart)  
-- 🧾 **PDF report generation** and download  
-- 🔐 **Optional login** to save personal assessment history  
-- 📂 **Data export** (CSV/JSON) and account deletion for GDPR compliance  
-- 🧠 **Transparent model card** documenting dataset, metrics, and bias checks 
-- 💌 **Predictions** providing possible life changes to lover a given prediction 
+## 🏗️ Current Architecture
+
+| Component | Technology | Status | Purpose |
+|------------|-------------|---------|----------|
+| **Frontend** | Svelte + Vite | ✅ Deployed | SPA with Google Sign-In, risk assessment form, user profile |
+| **API Gateway** | Go (Gin) | ✅ Deployed | Routes requests, authentication middleware, CORS handling |
+| **Auth Service** | Go (Gin) | ✅ Deployed | Google OAuth 2.0 flow, session management with secure cookies |
+| **Data Service** | Go (Gin) | ✅ Deployed | Database migrations, CRUD operations, PostgreSQL integration |
+| **ML Service** | Python (FastAPI) | 🔧 Deployed on server | Risk prediction using trained Random Forest model |
+| **Database** | PostgreSQL 16 | ✅ Deployed | User profiles, assessments, sessions, audit logs |
+| **Deployment** | Kubernetes (k3d) | ✅ Working | Microservices with Traefik ingress on localhost |
+
+---
+
+## 🎯 Current Features (Phase 2 Complete)
+- 🔐 **Google OAuth authentication** with secure session management (SHA-512 hashed tokens, 7-day expiry)
+- 👤 **User profiles** displaying name and avatar from Google account
+- 📊 **Risk assessment form** for collecting health metrics (age, BMI, blood pressure, glucose, etc.)
+- 💾 **Persistent storage** of user data and assessments in PostgreSQL
+- 🔄 **Database migrations** with automatic schema management
+- 🛡️ **Protected routes** requiring authentication to access assessment tool
+- 📝 **Audit logging** for GDPR compliance (tracks login, assessment creation, data access)
+- 🏗️ **Microservices architecture** with separate auth, data, and gateway services
+
+### 🚧 Upcoming Features (Phase 3)
+- ⚙️ **ML-powered risk prediction** integration with deployed FastAPI service
+- 📊 **Explainable output** (per-feature importance, calibration chart)
+- 🧾 **PDF report generation** and download
+- 📂 **Data export** (CSV/JSON) and account deletion UI
+- 🧠 **Model card** documenting dataset, metrics, and bias checks
+- 💡 **Personalized recommendations** for lifestyle changes 
 
 ---
 
@@ -47,39 +57,44 @@ then
 diabrisk/
 ├── docs/                   # System vision, dictionary, model cards
 ├── services/
-│   ├── api-gateway/        # Entry point for all requests
-│   ├── auth-svc/           # OAuth/magic-link authentication (Go)
-│   ├── data-svc/           # CRUD operations and persistence (Go + Postgres)
-│   ├── report-svc/         # PDF generation (Go)
-│   └── risk-svc/           # ML inference API (Python FastAPI + ONNX)
-├── ml/                     # Training pipeline and dataset adapters
-│   ├── data_ingest/
-│   ├── features/
-│   ├── train/
-│   ├── eval/
-│   └── notebooks/
-├── frontend/               # Svelte single-page app
-├── deploy/                 # Docker Compose / K8s manifests
-└── .github/workflows/      # CI/CD configuration
+│   ├── api-gateway/        # Entry point, auth middleware, service routing (Go + Gin)
+│   ├── auth-svc/           # Google OAuth 2.0, session management (Go + Gin)
+│   ├── data-svc/           # Database migrations, CRUD operations (Go + Gin + pgx)
+│   ├── report-svc/         # PDF generation (planned)
+│   └── ml-api/             # Risk prediction inference (deployed separately)
+├── data/                   # ML datasets (processed and raw)
+│   ├── processed/          # X_train/test, y_train/test CSVs
+│   └── raw/                # BRFSS 2015 dataset
+├── src/
+│   ├── Ml/                 # Model training scripts
+│   └── FastAPI/            # ML inference API (deployed on server)
+├── frontend/               # Svelte + Vite SPA with OAuth UI
+├── deploy/k8s/             # Kubernetes manifests (postgres, services, ingress)
+├── scripts/                # install-local-k3d.sh deployment script
+└── Dockerfile.*            # Multi-stage builds for each service
 ```
 
 ---
 
-## ⚡ Quick Start (Development)
+## 🗄️ Database Schema
 
-**Requirements:** Docker, Docker Compose, and Python ≥3.10
+The PostgreSQL database stores all application data with the following tables:
 
-```bash
-# Clone repository
-git clone https://github.com/piotrek1459/diabrisk.git
-cd diabrisk
+| Table | Purpose | Key Relationships |
+|-------|---------|-------------------|
+| **users** | User profiles from Google OAuth | Primary key for auth_sessions, assessments |
+| **auth_sessions** | Secure session tokens (SHA-512 hashed) | Foreign key to users |
+| **model_versions** | ML model metadata and performance metrics | Referenced by assessments |
+| **assessments** | User health data and risk predictions | Foreign keys to users and model_versions |
+| **reports** | Generated PDF reports | Foreign key to assessments |
+| **audit_logs** | User actions for GDPR compliance | Foreign key to users |
 
-# Start all services
-docker compose up --build
-```
-
-Then open **http://localhost:5173** (Svelte frontend).  
-The backend gateway runs on **http://localhost:8080**.
+**Why we need the database:**
+- Track assessment history over time for each user
+- Enable GDPR compliance (data export, right to be forgotten)
+- Model versioning and reproducibility
+- Secure session management without JWTs
+- Audit trail for regulatory requirements
 
 ---
 
@@ -101,20 +116,67 @@ The backend gateway runs on **http://localhost:8080**.
   - Processed datasets stored as CSV (`X_train_processed`, `X_test_processed`, etc.)
 
 Model artifacts and reproducible training scripts are located in `ml/`.  
-Each model version is accompanied by a **model card** documenting performance and dataset provenance.
-
----
-
-## 🧠 Architecture (Simplified)
+Each model version iCurrent Implementation)
 
 ```
-Svelte Frontend
+User Browser
+   │
+   ├──→ http://localhost (Traefik Ingress)
    │
    ▼
-API Gateway (Go)
- ├──→ Auth Service (login/session)
- ├──→ Risk Service (Python ML inference)
- ├──→ Data Service (store assessments)
+Svelte Frontend (Port 80)
+   │
+   ├──→ /auth/* → API Gateway → Auth Service
+   │                             ├─→ Google OAuth 2.0
+   │                             └─→ PostgreSQL (auth_sessions)
+   │
+   ├──→ /api/* → API Gateway (with auth middleware)
+   │              │
+   │              ├──→ Data Service → PostgreSQL
+   │              │     (users, assessments, audit_logs)
+   │              │
+   │              └──→ ML Service (deployed on server)
+   │                    (risk prediction)
+   📋 Project Status
+
+### ✅ Phase 1 (Complete)
+- System Vision and Dictionary documentation
+- Repository structure with microservices
+- ML model training pipeline
+- Dataset preparation (BRFSS 2015)
+
+### ✅ Phase 2 (Complete)
+- PostgreSQL database with migrations (6 tables, seed data)
+- Google OAuth 2.0 authentication service
+- Secure session management (SHA-512 tokens, 7-day expiry)
+- API Gateway with authentication middleware
+- Data service for CRUD operations
+- Svelte frontend with OAuth UI
+- Kubernetes deployment (k3d)
+- One-command setup script
+
+### 🚧 Phase 3 (In Progress)
+- ML service integration (deployed separately)
+- Risk assessment prediction flow
+- PDF report generation
+- Explainability features (SHAP/LIME)
+- Data export and account deletion UI
+- Model card documentation
+├── auth-svc (port 8081)
+├── data-svc (port 8082, runs migrations)
+├── api-gateway (port 8080)
+└── frontend (port 80)
+```
+
+**Authentication Flow:**
+1. User clicks "Sign in with Google"
+2. Redirected to Google OAuth consent screen
+3. Callback to `/auth/google/callback` with code
+4. Auth service exchanges code for user info
+5. Creates/finds user in database
+6. Generates secure session token (SHA-512 hash)
+7. Sets HttpOnly cookie with domain=localhost
+8. User can access protected `/api/risk` endpoint
  └──→ Report Service (PDF generator)
 ```
 
@@ -122,13 +184,7 @@ Session-based authentication (OAuth / magic link) allows users to view and manag
 
 ---
 
-## 🧩 Phase 1 Deliverables
-- ✅ System Vision (docs/system_vision.md)  
-- ✅ System Dictionary (docs/system_dictionary.md)  
-- ✅ Repo scaffold with service folders and documentation  
-- ✅ Model training plan & dataset references  
 
----
 
 ## 📜 License
 Educational and non-commercial use only.  
