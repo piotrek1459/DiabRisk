@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from pathlib import Path
 
 import os
@@ -8,6 +8,11 @@ from pydantic import BaseModel, Field
 from joblib import load
 
 
+<<<<<<< HEAD
+# --- paths & cache ---
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "models" / "diabrisk_screening.joblib"
+=======
 BASE_DIR = Path(__file__).resolve().parent  # directory containing ml_api.py
 
 CANDIDATES = [
@@ -27,9 +32,9 @@ if MODEL_PATH is None:
         "Model file not found. Tried: " + ", ".join([p for p in CANDIDATES if p])
     )
 
-model = load(MODEL_PATH)
-print(f"Loaded model from: {MODEL_PATH}")
 
+
+>>>>>>> origin/main
 
 _artifact: Optional[dict] = None
 
@@ -43,52 +48,21 @@ def load_artifact() -> dict:
     return _artifact
 
 
-def build_X(features: Dict[str, Any], feature_names: List[str]) -> np.ndarray:
+def build_X(features: Dict[str, Any], feature_names: list[str]) -> np.ndarray:
     missing = [f for f in feature_names if f not in features]
     if missing:
         raise HTTPException(
             status_code=400,
             detail={"error": "Missing features", "missing": missing},
         )
-    # Extra pola ignorujemy (ale możesz też zwracać warning)
-    return np.array([[float(features[f]) for f in feature_names]], dtype=float)
 
-
-def predict_class_and_probs(X: np.ndarray, model1, model2):
-    """
-    Zgodnie z Twoim treningiem kaskadowym:
-    - model1: 0 vs (1+2)
-    - model2: rozróżnia 1 vs 2 na próbkach "at risk"
-    """
-    # klasy końcowe: 0=healthy, 1=prediabetes, 2=diabetes
-    m1_pred = model1.predict(X)  # 0/1
-    y_pred = np.zeros((X.shape[0],), dtype=int)
-
-    at_risk_idx = np.where(m1_pred == 1)[0]
-    if len(at_risk_idx) > 0:
-        m2_pred = model2.predict(X[at_risk_idx])  # 1 => prediabetes, 0 => diabetes (jak w treningu)
-        y_pred[at_risk_idx[m2_pred == 1]] = 1
-        y_pred[at_risk_idx[m2_pred == 0]] = 2
-
-    # prawdopodobieństwa “screeningowe” tak jak w Twoim predict.py
-    p_at_risk = model1.predict_proba(X)[:, 1]
-    p_prediabetes = model2.predict_proba(X)[:, 1]
-
-    probs = np.vstack([
-        (1 - p_at_risk),               # healthy
-        (p_at_risk * p_prediabetes),   # prediabetes
-        (p_at_risk * (1 - p_prediabetes)),  # diabetes
-    ]).T
-
-    return y_pred, probs
-
-
-def confusion_matrix_3(y_true: np.ndarray, y_pred: np.ndarray) -> List[List[int]]:
-    cm = np.zeros((3, 3), dtype=int)
-    for t, p in zip(y_true, y_pred):
-        if t in (0, 1, 2) and p in (0, 1, 2):
-            cm[t, p] += 1
-    return cm.tolist()
+    try:
+        return np.array([[float(features[f]) for f in feature_names]], dtype=float)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Invalid feature value type"},
+        )
 
 
 # --- FastAPI ---
@@ -96,23 +70,15 @@ app = FastAPI(title="DiabRisk ML Service", version="1.0")
 
 
 class PredictRequest(BaseModel):
-    features: Dict[str, Any] = Field(..., description="Słownik: nazwa_cechy -> wartość (0/1/liczba)")
+    features: Dict[str, Any] = Field(
+        ..., description="Dict: feature_name -> numeric value"
+    )
 
 
 class PredictResponse(BaseModel):
     RiskPercent: float
     Category: str
     Message: str
-   
-
-
-class AccuracySample(BaseModel):
-    features: Dict[str, Any]
-    y_true: int = Field(..., description="0=healthy, 1=prediabetes, 2=diabetes")
-
-
-class AccuracyRequest(BaseModel):
-    samples: List[AccuracySample]
 
 
 @app.get("/healthz")
@@ -123,47 +89,36 @@ def healthz():
 @app.get("/features")
 def features():
     art = load_artifact()
-    return {"feature_names": art["feature_names"], "count": len(art["feature_names"])}
+    return {
+        "feature_names": art["feature_names"],
+        "count": len(art["feature_names"]),
+    }
 
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest):
     art = load_artifact()
-    """
+
     model1 = art["model1"]
-    model2 = art["model2"]
+    feature_names = art["feature_names"]
 
     X = build_X(req.features, feature_names)
-    y_pred, probs = predict_class_and_probs(X, model1, model2)
 
-    label_map = {0: "healthy", 1: "prediabetes", 2: "diabetes"}
-    p = probs[0]
-    artifact = load_model()
+    risk_score = 1 - model1.predict_proba(X)[0, 1]
 
-    model1 = artifact["model1"]
-    model2 = artifact["model2"]
-    feature_names = artifact["feature_names"]
-
-    X = np.array([[features[f] for f in feature_names]])"""
-    model1 = art["model1"]
-    model2 = art["model2"]
-    feature_names = art["feature_names"]
-    X = build_X(req.features, feature_names)    
-    p_at_risk = 1-model1.predict_proba(X)[0, 1]
-    p_prediabetes = model2.predict_proba(X)[0, 1]
-    category="low"
-    message="Jesteś zdrowy jak koń"
-    if p_at_risk>0.50:
-        category="medium"
-        message="visit  doctor house"
-    if p_at_risk>0.80:
-        category="high"
-        message="you are so ill "
+    # --- decision logic ---
+    if risk_score > 0.80:
+        category = "high"
+        message = "High risk detected. Immediate medical consultation recommended."
+    elif risk_score > 0.50:
+        category = "medium"
+        message = "Moderate risk detected. Consider scheduling a medical checkup."
+    else:
+        category = "low"
+        message = "Low risk detected. No immediate action required."
 
     return PredictResponse(
-        RiskPercent=p_at_risk,        
+        RiskPercent=risk_score,
         Category=category,
-        Message=message
+        Message=message,
     )
-
-    
