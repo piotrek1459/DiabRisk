@@ -8,6 +8,19 @@ from pydantic import BaseModel, Field
 from joblib import load
 
 
+# --- scaler data --- 
+SCALER_MEAN = {
+    "BMI": 28.391265570797856,
+    "MentHlth": 3.177388836329232,
+    "PhysHlth": 4.232379375591297,
+}
+
+SCALER_SCALE = {  
+    "BMI": 6.616426071801123,
+    "MentHlth": 7.401493591748837,
+    "PhysHlth": 8.709293119641702,
+}
+
 # --- paths & cache ---
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -32,6 +45,15 @@ if MODEL_PATH is None:
 
 
 _artifact: Optional[dict] = None
+
+def apply_training_scaling(X, feature_names):
+    X_scaled = X.copy()
+
+    for feat in ("BMI", "MentHlth", "PhysHlth"):
+        idx = feature_names.index(feat)
+        X_scaled[0, idx] = (X_scaled[0, idx] - SCALER_MEAN[feat]) / SCALER_SCALE[feat]
+
+    return X_scaled
 
 
 def load_artifact() -> dict:
@@ -98,6 +120,8 @@ def predict(req: PredictRequest):
     feature_names = art["feature_names"]
 
     X = build_X(req.features, feature_names)
+
+    X = apply_training_scaling(X, feature_names)
 
     risk_score = 1 - model1.predict_proba(X)[0, 1]
 
