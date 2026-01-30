@@ -116,7 +116,34 @@ The PostgreSQL database stores all application data with the following tables:
   - Processed datasets stored as CSV (`X_train_processed`, `X_test_processed`, etc.)
 
 Model artifacts and reproducible training scripts are located in `ml/`.  
-Each model version iCurrent Implementation)
+Each model version iCurrent Implementation
+
+## ML Results
+```
+=== MODEL 1 ===
+              precision    recall  f1-score   support
+
+           0      0.878     0.951     0.913     42740
+           1      0.975     0.934     0.954     85482
+
+    accuracy                          0.940    128222
+   macro avg      0.926     0.943     0.933    128222
+weighted avg      0.942     0.940     0.940    128222
+
+```
+```
+
+=== MODEL 2 ===
+              precision    recall  f1-score   support
+
+           0      0.974     0.990     0.982     42741
+           1      0.990     0.974     0.982     42741
+
+    accuracy                          0.982     85482
+   macro avg      0.982     0.982     0.982     85482
+weighted avg      0.982     0.982     0.982     85482
+
+```
 
 ```
 User Browser
