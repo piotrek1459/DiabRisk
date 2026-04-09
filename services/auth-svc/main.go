@@ -6,7 +6,6 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,31 +15,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	pool        *pgxpool.Pool
-	oauthConfig *oauth2.Config
+	pool *pgxpool.Pool
 )
 
 type User struct {
-	ID         string    `json:"id"`
-	Email      string    `json:"email"`
-	GoogleID   *string   `json:"google_id,omitempty"`
-	FullName   *string   `json:"full_name,omitempty"`
-	PictureURL *string   `json:"picture_url,omitempty"`
-	Role       string    `json:"role"`
-	CreatedAt  time.Time `json:"created_at"`
-}
-
-type GoogleUserInfo struct {
-	ID            string `json:"id"`
-	Email         string `json:"email"`
-	VerifiedEmail bool   `json:"verified_email"`
-	Name          string `json:"name"`
-	Picture       string `json:"picture"`
+	ID           string    `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"`
+	FullName     *string   `json:"full_name,omitempty"`
+	Role         string    `json:"role"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Session struct {
@@ -50,27 +38,25 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type RegisterRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=6"`
+	FullName string `json:"full_name"`
+}
+
 func main() {
 	dbURL := getEnv("DATABASE_URL", "postgres://diabrisk:diabrisk_dev_password@postgres:5432/diabrisk?sslmode=disable")
 	port := getEnv("PORT", "8081")
-	clientID := getEnv("GOOGLE_CLIENT_ID", "")
-	clientSecret := getEnv("GOOGLE_CLIENT_SECRET", "")
-	redirectURL := getEnv("REDIRECT_URL", "http://diabrisk.local/auth/google/callback")
+	adminEmail := getEnv("ADMIN_EMAIL", "admin@diabrisk.local")
+	adminPassword := getEnv("ADMIN_PASSWORD", "default_admin_password")
 
 	log.Println("Starting auth-svc...")
 	log.Printf("Port: %s", port)
-	log.Printf("Redirect URL: %s", redirectURL)
-
-	oauthConfig = &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURL,
-		Scopes: []string{
-			"https://www.googleapis.com/auth/userinfo.email",
-			"https://www.googleapis.com/auth/userinfo.profile",
-		},
-		Endpoint: google.Endpoint,
-	}
 
 	var err error
 	pool, err = pgxpool.New(context.Background(), dbURL)
@@ -84,14 +70,19 @@ func main() {
 	}
 	log.Println("✅ Connected to PostgreSQL")
 
+	// Seed default admin user
+	if err := seedAdminUser(context.Background(), adminEmail, adminPassword); err != nil {
+		log.Printf("Failed to seed admin user: %v", err)
+	}
+
 	r := gin.Default()
 
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	r.GET("/auth/google/login", handleGoogleLogin)
-	r.GET("/auth/google/callback", handleGoogleCallback)
+	r.POST("/auth/register", handleRegister)
+	r.POST("/auth/login", handleLogin)
 	r.POST("/auth/logout", handleLogout)
 	r.GET("/auth/session", handleGetSession)
 
@@ -101,51 +92,41 @@ func main() {
 	}
 }
 
-func handleGoogleLogin(c *gin.Context) {
-	state := generateRandomString(32)
-	c.SetCookie("oauth_state", state, 600, "/", "localhost", false, true)
-	url := oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
-	c.Redirect(http.StatusTemporaryRedirect, url)
+func handleRegister(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Failed to hash password: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
+		return
+	}
+
+	user, err := createUser(context.Background(), req.Email, string(hashedPassword), req.FullName)
+	if err != nil {
+		log.Printf("Failed to create user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully", "user": user})
 }
 
-func handleGoogleCallback(c *gin.Context) {
-	state := c.Query("state")
-	cookieState, err := c.Cookie("oauth_state")
-	if err != nil || state != cookieState {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
+func handleLogin(c *gin.Context) {
+	var req LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.SetCookie("oauth_state", "", -1, "/", "localhost", false, true)
-
-	code := c.Query("code")
-	token, err := oauthConfig.Exchange(context.Background(), code)
+	user, err := authenticateUser(context.Background(), req.Email, req.Password)
 	if err != nil {
-		log.Printf("Failed to exchange token: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token"})
-		return
-	}
-
-	client := oauthConfig.Client(context.Background(), token)
-	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
-	if err != nil {
-		log.Printf("Failed to get user info: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info"})
-		return
-	}
-	defer resp.Body.Close()
-
-	var googleUser GoogleUserInfo
-	if err := json.NewDecoder(resp.Body).Decode(&googleUser); err != nil {
-		log.Printf("Failed to decode user info: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode user info"})
-		return
-	}
-
-	user, err := findOrCreateUser(context.Background(), googleUser)
-	if err != nil {
-		log.Printf("Failed to find/create user: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process user"})
+		log.Printf("Failed to authenticate user: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
@@ -166,7 +147,7 @@ func handleGoogleCallback(c *gin.Context) {
 		true,
 	)
 
-	c.Redirect(http.StatusTemporaryRedirect, "/")
+	c.JSON(http.StatusOK, gin.H{"message": "Logged in successfully", "user": user})
 }
 
 func handleLogout(c *gin.Context) {
@@ -206,37 +187,67 @@ func handleGetSession(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func findOrCreateUser(ctx context.Context, googleUser GoogleUserInfo) (*User, error) {
+func seedAdminUser(ctx context.Context, email, password string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO users (email, password_hash, full_name, role, last_login_at)
+		VALUES ($1, $2, $3, 'admin', NOW())
+		ON CONFLICT (email) DO NOTHING
+	`, email, string(hashedPassword), "Administrator")
+
+	if err != nil {
+		return fmt.Errorf("failed to seed admin user: %w", err)
+	}
+
+	log.Printf("✅ Admin user seeded: %s", email)
+	return nil
+}
+
+func createUser(ctx context.Context, email, passwordHash, fullName string) (*User, error) {
 	var user User
 
 	err := pool.QueryRow(ctx, `
-		SELECT id, email, google_id, full_name, picture_url, role, created_at
-		FROM users
-		WHERE google_id = $1
-	`, googleUser.ID).Scan(
-		&user.ID, &user.Email, &user.GoogleID, &user.FullName,
-		&user.PictureURL, &user.Role, &user.CreatedAt,
-	)
-
-	if err == nil {
-		_, _ = pool.Exec(ctx, "UPDATE users SET last_login_at = NOW() WHERE id = $1", user.ID)
-		return &user, nil
-	}
-
-	log.Printf("Creating new user: %s (%s)", googleUser.Email, googleUser.Name)
-
-	err = pool.QueryRow(ctx, `
-		INSERT INTO users (email, google_id, full_name, picture_url, role, last_login_at)
-		VALUES ($1, $2, $3, $4, 'registered', NOW())
-		RETURNING id, email, google_id, full_name, picture_url, role, created_at
-	`, googleUser.Email, googleUser.ID, googleUser.Name, googleUser.Picture).Scan(
-		&user.ID, &user.Email, &user.GoogleID, &user.FullName,
-		&user.PictureURL, &user.Role, &user.CreatedAt,
+		INSERT INTO users (email, password_hash, full_name, role, last_login_at)
+		VALUES ($1, $2, $3, 'registered', NOW())
+		RETURNING id, email, password_hash, full_name, role, created_at
+	`, email, passwordHash, fullName).Scan(
+		&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
+		&user.Role, &user.CreatedAt,
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
+
+	return &user, nil
+}
+
+func authenticateUser(ctx context.Context, email, password string) (*User, error) {
+	var user User
+	var passwordHash string
+
+	err := pool.QueryRow(ctx, `
+		SELECT id, email, password_hash, full_name, role, created_at
+		FROM users
+		WHERE email = $1
+	`, email).Scan(
+		&user.ID, &user.Email, &passwordHash, &user.FullName,
+		&user.Role, &user.CreatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)); err != nil {
+		return nil, fmt.Errorf("invalid password")
+	}
+
+	_, _ = pool.Exec(ctx, "UPDATE users SET last_login_at = NOW() WHERE id = $1", user.ID)
 
 	return &user, nil
 }
@@ -269,15 +280,15 @@ func validateSession(ctx context.Context, sessionToken string) (*User, error) {
 
 	var user User
 	err := pool.QueryRow(ctx, `
-		SELECT u.id, u.email, u.google_id, u.full_name, u.picture_url, u.role, u.created_at
+		SELECT u.id, u.email, u.password_hash, u.full_name, u.role, u.created_at
 		FROM users u
 		JOIN auth_sessions s ON u.id = s.user_id
 		WHERE s.token_hash = $1
 		  AND s.expires_at > NOW()
 		  AND s.is_revoked = FALSE
 	`, tokenHash).Scan(
-		&user.ID, &user.Email, &user.GoogleID, &user.FullName,
-		&user.PictureURL, &user.Role, &user.CreatedAt,
+		&user.ID, &user.Email, &user.PasswordHash, &user.FullName,
+		&user.Role, &user.CreatedAt,
 	)
 
 	if err != nil {

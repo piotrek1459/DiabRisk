@@ -77,6 +77,8 @@ func main() {
 	// Auth routes - proxy to auth-svc (no auth required)
 	authRoutes := r.Group("/auth")
 	{
+		authRoutes.POST("/register", proxyToAuthService)
+		authRoutes.POST("/login", proxyToAuthService)
 		authRoutes.GET("/google/login", proxyToAuthService)
 		authRoutes.GET("/google/callback", proxyToAuthService)
 		authRoutes.POST("/logout", proxyToAuthService)
