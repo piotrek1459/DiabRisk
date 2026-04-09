@@ -87,7 +87,7 @@ def main():
     print("\n>>> Training cascade model...")
     cascade = train_cascade_with_splits(X_train, X_test, y_train, y_test)
 
-    # ===== SAVE MODEL (ARTEFAKT) =====
+    # ===== SAVE MODEL  =====
     model_dir = base_dir / "models"
     model_dir.mkdir(exist_ok=True)
 
