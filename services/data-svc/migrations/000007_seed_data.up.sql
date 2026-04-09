@@ -34,22 +34,4 @@ INSERT INTO model_versions (
     TRUE
 ) ON CONFLICT (version) DO NOTHING;
 
--- Insert test admin user (for development only)
-INSERT INTO users (
-    email,
-    role
-) VALUES (
-    'admin@diabrisk.local',
-    'admin'
-) ON CONFLICT (email) DO NOTHING;
-
--- Insert test regular user (for development only)
-INSERT INTO users (
-    email,
-    role
-) VALUES (
-    'user@diabrisk.local',
-    'registered'
-) ON CONFLICT (email) DO NOTHING;
-
 COMMENT ON TABLE model_versions IS 'NOTE: Default model v1.0.0 has basic calibration data for diabetes risk thresholds';

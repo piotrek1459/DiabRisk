@@ -206,7 +206,11 @@ func seedAdminUser(ctx context.Context, email, password string) error {
 	_, err = pool.Exec(ctx, `
 		INSERT INTO users (email, password_hash, full_name, role, last_login_at)
 		VALUES ($1, $2, $3, 'admin', NOW())
-		ON CONFLICT (email) DO NOTHING
+		ON CONFLICT (email) DO UPDATE SET
+			password_hash = EXCLUDED.password_hash,
+			full_name = EXCLUDED.full_name,
+			role = 'admin',
+			last_login_at = NOW()
 	`, email, string(hashedPassword), "Administrator")
 
 	if err != nil {
