@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -76,6 +77,15 @@ func main() {
 	}
 
 	r := gin.Default()
+
+	// CORS setup for local dev (Frontend on :5173, other services on k3d)
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost", "http://diabrisk.local"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
@@ -142,7 +152,7 @@ func handleLogin(c *gin.Context) {
 		sessionToken,
 		int(time.Until(session.ExpiresAt).Seconds()),
 		"/",
-		"localhost",
+		"",
 		false,
 		true,
 	)

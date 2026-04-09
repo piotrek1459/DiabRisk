@@ -2,7 +2,7 @@ import numpy as np
 from joblib import load
 from pathlib import Path
 
-# Root projektu: DiabRisk/
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 MODEL_PATH = BASE_DIR / "models" / "diabrisk_screening.joblib"
 

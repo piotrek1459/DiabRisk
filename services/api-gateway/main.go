@@ -14,6 +14,7 @@ import (
 
 var (
 	authServiceURL = getEnv("AUTH_SERVICE_URL", "http://auth-svc:8081")
+	mlServiceURL   = getEnv("ML_SERVICE_URL", "http://ml-api:8000")
 )
 
 func getEnv(key, defaultValue string) string {
@@ -97,29 +98,52 @@ func main() {
 				return
 			}
 
+			// Build ML API request
+			mlReq := map[string]interface{}{
+				"features": req,
+			}
+
 			// Marshal the request to JSON
-			reqBody, err := json.Marshal(req)
+			reqBody, err := json.Marshal(mlReq)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal request"})
 				return
 			}
 
 			// Forward the request to the ML service
-			resp, err := http.Post("http://65.109.169.137:8000/predict", "application/json", bytes.NewBuffer(reqBody))
+			mlResp, err := http.Post(mlServiceURL+"/predict", "application/json", bytes.NewBuffer(reqBody))
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to ML service"})
 				return
 			}
-			defer resp.Body.Close()
+			defer mlResp.Body.Close()
 
 			// Read the response from the ML service
 			var mlResponse map[string]interface{}
-			if err := json.NewDecoder(resp.Body).Decode(&mlResponse); err != nil {
+			if err := json.NewDecoder(mlResp.Body).Decode(&mlResponse); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse ML service response"})
 				return
 			}
 
 			c.JSON(http.StatusOK, mlResponse)
+		})
+
+		// Features endpoint (list available features)
+		api.GET("/features", func(c *gin.Context) {
+			mlResp, err := http.Get(mlServiceURL + "/features")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to ML service"})
+				return
+			}
+			defer mlResp.Body.Close()
+
+			var features map[string]interface{}
+			if err := json.NewDecoder(mlResp.Body).Decode(&features); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse ML service response"})
+				return
+			}
+
+			c.JSON(http.StatusOK, features)
 		})
 	}
 
