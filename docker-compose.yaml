@@ -1,13 +1,15 @@
+# This file is kept for reference only
+# All services are now deployed on k3d Kubernetes cluster
+# To start the application:
+# 1. Run: .\scripts\install-local-k3d.ps1
+# 2. Access at: http://localhost
+
+version: '3.8'
 services:
-  diab-risk-api:
-    build:
-      context: .
-      dockerfile: Dockerfile.ml-api
-    container_name: diab-risk-api
-    ports:
-      - "8000:8000"
-    environment:
-      - MODEL_PATH=/models/model.joblib
-    volumes:
-      - /opt/models/model.joblib:/models/model.joblib:ro
-    restart: unless-stopped
+  # ML API is now deployed on k3d cluster
+  # Use: kubectl port-forward svc/ml-api 8000:8000
+  # Or access through API Gateway at: http://localhost/api/risk
+  placeholder:
+    image: alpine
+    entrypoint: echo "All services are running on k3d. See deploy/k8s/ for manifests."
+

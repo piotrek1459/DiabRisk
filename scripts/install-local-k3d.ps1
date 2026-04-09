@@ -202,6 +202,9 @@ if ($LASTEXITCODE -ne 0) { throw "Build diabrisk-data:dev nie powiódł się." }
 & docker build -f Dockerfile.auth-svc -t diabrisk-auth:dev services/auth-svc
 if ($LASTEXITCODE -ne 0) { throw "Build diabrisk-auth:dev nie powiódł się." }
 
+& docker build -f Dockerfile.ml-api -t diabrisk-ml:dev .
+if ($LASTEXITCODE -ne 0) { throw "Build diabrisk-ml:dev nie powiódł się." }
+
 Write-Step "Importing images into k3d cluster '$ClusterName'"
 
 & k3d image import `
@@ -209,7 +212,8 @@ Write-Step "Importing images into k3d cluster '$ClusterName'"
     diabrisk-api:dev `
     diabrisk-frontend:dev `
     diabrisk-data:dev `
-    diabrisk-auth:dev
+    diabrisk-auth:dev `
+    diabrisk-ml:dev
 if ($LASTEXITCODE -ne 0) {
     throw "Import obrazów do klastra nie powiódł się."
 }
@@ -236,6 +240,10 @@ if (-not (Retry-KubectlApplyFile "deploy/k8s/api-gateway.yaml")) {
     throw "Nie udało się wdrożyć api-gateway.yaml."
 }
 
+if (-not (Retry-KubectlApplyFile "deploy/k8s/ml-api.yaml")) {
+    throw "Nie udało się wdrożyć ml-api.yaml."
+}
+
 if (-not (Retry-KubectlApplyFile "deploy/k8s/frontend.yaml")) {
     throw "Nie udało się wdrożyć frontend.yaml."
 }
@@ -248,6 +256,7 @@ Write-Step "Waiting for deployments to be ready"
 
 Wait-DeploymentRollout -DeploymentName "data-svc" -TimeoutSeconds 120
 Wait-DeploymentRollout -DeploymentName "auth-svc" -TimeoutSeconds 120
+Wait-DeploymentRollout -DeploymentName "ml-api" -TimeoutSeconds 120
 Wait-DeploymentRollout -DeploymentName "api-gateway" -TimeoutSeconds 120
 Wait-DeploymentRollout -DeploymentName "frontend" -TimeoutSeconds 120
 

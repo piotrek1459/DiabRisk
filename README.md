@@ -8,12 +8,39 @@ The project demonstrates how interpretable **machine learning** can be integrate
 
 **Requirements:** Docker, k3d, kubectl
 
+### Windows (PowerShell)
+```powershell
+cd C:\Users\YourUser\Documents\DiabRisk
+.\scripts\install-local-k3d.ps1
+```
+
+### Linux/Mac (Bash)
 ```bash
-# Deploy all services (builds images, applies manifests, runs migrations)
+cd ~/DiabRisk
 ./scripts/install-local-k3d.sh
 ```
 
-Then open **http://localhost** to access the application with Google OAuth authentication.
+Then open **http://localhost** to access the application.
+
+**Default Credentials:**
+- Email: `admin@diabrisk.local`
+- Password: `default_admin_password`
+
+**Troubleshooting:**
+```bash
+# View logs
+kubectl logs -f -l app=api-gateway
+kubectl logs -f -l app=auth-svc
+kubectl logs -f -l app=ml-api
+
+# Port forward to services (if needed)
+kubectl port-forward svc/ml-api 8000:8000
+kubectl port-forward svc/auth-svc 8081:8081
+
+# Access API directly (for testing)
+curl http://localhost/auth/session
+curl -X POST http://localhost/auth/login -H "Content-Type: application/json" -d '{"email":"admin@diabrisk.local","password":"default_admin_password"}'
+```
 
 ---
 
@@ -21,33 +48,34 @@ Then open **http://localhost** to access the application with Google OAuth authe
 
 | Component | Technology | Status | Purpose |
 |------------|-------------|---------|----------|
-| **Frontend** | Svelte + Vite | ✅ Deployed | SPA with Google Sign-In, risk assessment form, user profile |
+| **Frontend** | Svelte + Vite | ✅ Deployed | SPA with email/password auth, risk assessment form |
 | **API Gateway** | Go (Gin) | ✅ Deployed | Routes requests, authentication middleware, CORS handling |
-| **Auth Service** | Go (Gin) | ✅ Deployed | Google OAuth 2.0 flow, session management with secure cookies |
+| **Auth Service** | Go (Gin) | ✅ Deployed | Local email/password authentication, session management with secure cookies |
 | **Data Service** | Go (Gin) | ✅ Deployed | Database migrations, CRUD operations, PostgreSQL integration |
-| **ML Service** | Python (FastAPI) | 🔧 Deployed on server | Risk prediction using trained Random Forest model |
-| **Database** | PostgreSQL 16 | ✅ Deployed | User profiles, assessments, sessions, audit logs |
+| **ML Service** | Python (FastAPI) | ✅ Deployed on k3d | Risk prediction using trained Random Forest model |
+| **Database** | PostgreSQL 16 | ✅ Deployed on k3d | User profiles, assessments, sessions, audit logs |
 | **Deployment** | Kubernetes (k3d) | ✅ Working | Microservices with Traefik ingress on localhost |
 
 ---
 
 ## 🎯 Current Features (Phase 2 Complete)
-- 🔐 **Google OAuth authentication** with secure session management (SHA-512 hashed tokens, 7-day expiry)
-- 👤 **User profiles** displaying name and avatar from Google account
+- 🔐 **Local authentication** with email/password and secure session management (SHA-512 hashed tokens, 7-day expiry)
+- 👤 **User profiles** with optional full name and email display
 - 📊 **Risk assessment form** for collecting health metrics (age, BMI, blood pressure, glucose, etc.)
 - 💾 **Persistent storage** of user data and assessments in PostgreSQL
 - 🔄 **Database migrations** with automatic schema management
 - 🛡️ **Protected routes** requiring authentication to access assessment tool
 - 📝 **Audit logging** for GDPR compliance (tracks login, assessment creation, data access)
-- 🏗️ **Microservices architecture** with separate auth, data, and gateway services
+- 🏗️ **Microservices architecture** with separate auth, data, gateway, and ML services
+- 🤖 **ML-powered risk prediction** integrated with FastAPI service running on k3d
 
 ### 🚧 Upcoming Features (Phase 3)
-- ⚙️ **ML-powered risk prediction** integration with deployed FastAPI service
 - 📊 **Explainable output** (per-feature importance, calibration chart)
 - 🧾 **PDF report generation** and download
 - 📂 **Data export** (CSV/JSON) and account deletion UI
 - 🧠 **Model card** documenting dataset, metrics, and bias checks
-- 💡 **Personalized recommendations** for lifestyle changes 
+- 💡 **Personalized recommendations** for lifestyle changes
+- 📱 **Mobile-responsive design** improvements
 
 ---
 
