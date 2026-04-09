@@ -121,7 +121,7 @@
           "Content-Type": "application/json"
         },
         credentials: "include",
-        body: JSON.stringify({ features })
+        body: JSON.stringify(features)
       });
 
       if (!res.ok) {

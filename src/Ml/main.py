@@ -34,7 +34,9 @@ def train_cascade_with_splits(X_train, X_test, y_train, y_test, random_state=42)
     y_test_m1 = np.where(y_test == 0, 0, 1)
 
     model1 = RandomForestClassifier(
-        n_estimators=200,
+        n_estimators=40,
+        max_depth=12,
+        min_samples_leaf=10,
         n_jobs=-1,
         random_state=random_state,
         class_weight="balanced"
@@ -48,7 +50,9 @@ def train_cascade_with_splits(X_train, X_test, y_train, y_test, random_state=42)
     test_mask = y_test != 0
 
     model2 = RandomForestClassifier(
-        n_estimators=200,
+        n_estimators=40,
+        max_depth=12,
+        min_samples_leaf=10,
         n_jobs=-1,
         random_state=random_state,
         class_weight="balanced"
