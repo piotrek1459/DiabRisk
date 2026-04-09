@@ -98,9 +98,14 @@ func main() {
 				return
 			}
 
+			featuresPayload := req
+			if nested, ok := req["features"].(map[string]interface{}); ok {
+				featuresPayload = nested
+			}
+
 			// Build ML API request
 			mlReq := map[string]interface{}{
-				"features": req,
+				"features": featuresPayload,
 			}
 
 			// Marshal the request to JSON
