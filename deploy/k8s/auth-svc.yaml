@@ -28,21 +28,16 @@ spec:
               key: url
         - name: PORT
           value: "8081"
-        - name: GOOGLE_CLIENT_ID
+        - name: ADMIN_EMAIL
           valueFrom:
             secretKeyRef:
-              name: oauth-secret
-              key: google-client-id
-        - name: GOOGLE_CLIENT_SECRET
+              name: auth-secret
+              key: admin_email
+        - name: ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: oauth-secret
-              key: google-client-secret
-        - name: REDIRECT_URL
-          valueFrom:
-            secretKeyRef:
-              name: oauth-secret
-              key: redirect-url
+              name: auth-secret
+              key: admin_password
         resources:
           requests:
             memory: "64Mi"
