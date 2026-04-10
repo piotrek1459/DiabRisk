@@ -1,19 +1,48 @@
 # FAQ
 
-## What data does DiabRisk use?
+## What data is the model based on?
 
-The ML model is trained on the CDC BRFSS 2015 dataset (Behavioral Risk Factor Surveillance System) containing 253,680 survey responses.
+The project uses the BRFSS 2015 health-indicators dataset stored in
+`data/raw/`. The current repository also includes precomputed processed
+splits in `data/processed/`.
 
-## How accurate is the prediction?
+## Do I need an account to use the assessment?
 
-The screening model achieves ~94% accuracy and the severity model ~98% accuracy on the test set. However, this is a screening tool and should not replace professional medical diagnosis.
+Yes. In the current application flow, the risk form is displayed only after
+logging in.
+
+## What kind of account does the current version use?
+
+The current browser flow uses local email/password authentication and a
+session cookie.
+
+## What does the application show after I submit the form?
+
+The application shows:
+
+- a risk percentage
+- a category: `Low`, `Medium`, or `High`
+- a short explanatory message
+
+## What do the risk categories mean in the current UI?
+
+- **Low**: up to 50%
+- **Medium**: above 50% up to 80%
+- **High**: above 80%
+
+These categories are based on the current ML API response mapping.
 
 ## Is my data stored?
 
-Assessment results are stored in the database and linked to your user account. You can contact an administrator to request data deletion.
+The current application stores account data and authentication-session
+data. The user-facing browser flow does not provide a visible history of
+submitted assessments.
 
-## What do the risk categories mean?
+## Can I export or download my results?
 
-- **Low** (0-50%): Lower probability of diabetes risk based on provided indicators
-- **Medium** (50-80%): Moderate probability; consider consulting a healthcare provider
-- **High** (80-100%): Higher probability; strongly recommended to consult a healthcare provider
+No. The current UI does not expose export or report-download features.
+
+## Is this medical advice?
+
+No. DiabRisk is an educational screening tool. It does not replace medical
+consultation, diagnosis, or treatment.
