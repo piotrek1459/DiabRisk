@@ -71,10 +71,19 @@ func main() {
 	}
 	log.Println("✅ Connected to PostgreSQL")
 
-	// Seed default admin user
-	if err := seedAdminUser(context.Background(), adminEmail, adminPassword); err != nil {
-		log.Printf("Failed to seed admin user: %v", err)
-	}
+	// Seed default admin user with retry (waits for migrations to complete)
+	go func() {
+		maxRetries := 30
+		for i := 0; i < maxRetries; i++ {
+			if err := seedAdminUser(context.Background(), adminEmail, adminPassword); err != nil {
+				log.Printf("Admin seed attempt %d/%d failed: %v", i+1, maxRetries, err)
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			return
+		}
+		log.Printf("WARNING: Failed to seed admin user after %d attempts", maxRetries)
+	}()
 
 	r := gin.Default()
 
@@ -122,6 +131,23 @@ func handleRegister(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
+
+	session, sessionToken, err := createSession(context.Background(), user.ID)
+	if err != nil {
+		log.Printf("Failed to create session after registration: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
+
+	c.SetCookie(
+		"session_token",
+		sessionToken,
+		int(time.Until(session.ExpiresAt).Seconds()),
+		"/",
+		"",
+		false,
+		true,
+	)
 
 	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully", "user": user})
 }
