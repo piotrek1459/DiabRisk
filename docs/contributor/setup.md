@@ -130,7 +130,6 @@ The repo ships `.env.example` with the main settings:
 
 ## Repo-Specific Notes
 
-- `docker-compose.yaml` is kept only as a reference. The active local path is Kubernetes, not Compose.
 - `data-svc` currently behaves as a migration runner and schema verifier. It does not expose user-facing CRUD endpoints.
 - The frontend uses relative URLs. If you run backend services outside Kubernetes, update environment or proxy configuration accordingly.
 - The model artifact expected by `ml-api` lives under `models/` in the repo and is copied into the image built from `Dockerfile.ml-api`.
@@ -139,7 +138,7 @@ The repo ships `.env.example` with the main settings:
 
 ### Reset the Local Cluster
 
-If the cluster state is inconsistent, rerun the install script. The PowerShell script deletes and recreates the cluster before deploying.
+If the cluster state is inconsistent, rerun the install script - it deletes and recreates the cluster before deploying.
 
 ### Check Rollout Status
 
