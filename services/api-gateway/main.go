@@ -80,8 +80,6 @@ func main() {
 	{
 		authRoutes.POST("/register", proxyToAuthService)
 		authRoutes.POST("/login", proxyToAuthService)
-		authRoutes.GET("/google/login", proxyToAuthService)
-		authRoutes.GET("/google/callback", proxyToAuthService)
 		authRoutes.POST("/logout", proxyToAuthService)
 		authRoutes.GET("/session", proxyToAuthService)
 	}

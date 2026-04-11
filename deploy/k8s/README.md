@@ -1,52 +1,89 @@
 # Kubernetes Manifests
 
-## Setting Up OAuth Credentials
+This folder contains the manifests used by the local k3d deployment
+scripts.
 
-The `secrets.yaml` file contains placeholder values. To deploy with working Google OAuth:
+## Active Deployment Path
 
-### Option 1: Environment Variables (Recommended)
+The install scripts apply these manifests during local setup:
+
+- `postgres.yaml`
+- `data-svc.yaml`
+- `auth-svc.yaml`
+- `api-gateway.yaml`
+- `ml-api.yaml`
+- `frontend.yaml`
+- `ingress.yaml`
+
+The supported entrypoints for local deployment are:
+
+- `scripts/install-local-k3d.ps1`
+- `scripts/install-local-k3d.sh`
+
+## Secrets Used by the Current Runtime
+
+The current stack requires two Kubernetes secrets:
+
+### `postgres-secret`
+
+- `username`
+- `password`
+- `database`
+- `url`
+
+### `auth-secret`
+
+- `admin_email`
+- `admin_password`
+
+`secrets.yaml` contains local-development defaults, but the install
+scripts also create these secret objects directly during deployment.
+
+## Manifest Notes
+
+| File | Current Role |
+|------|--------------|
+| `postgres.yaml` | PostgreSQL deployment and service |
+| `data-svc.yaml` | migration runner deployment |
+| `auth-svc.yaml` | auth service deployment and service |
+| `api-gateway.yaml` | gateway deployment and service |
+| `ml-api.yaml` | ML service deployment, service, and model-path config |
+| `frontend.yaml` | frontend deployment and service |
+| `ingress.yaml` | Traefik ingress for `localhost` |
+| `secrets.yaml` | local default secrets, useful when applying resources manually |
+| `configmap.yaml` | legacy file, not applied by the current install scripts |
+
+## Access Pattern
+
+With the default manifests applied:
+
+- `http://localhost/` -> frontend
+- `http://localhost/auth/*` -> `api-gateway` -> `auth-svc`
+- `http://localhost/api/*` -> `api-gateway` -> `ml-api`
+
+`/healthz` is implemented inside services, but it is not exposed through
+the current ingress manifest.
+
+## Useful Commands
 
 ```bash
-# Set your OAuth credentials
-export GOOGLE_CLIENT_ID='your-client-id.apps.googleusercontent.com'
-export GOOGLE_CLIENT_SECRET='GOCSPX-your-client-secret'
-
-# Run the install script (will use environment variables)
-./scripts/install-local-k3d.sh
+kubectl get pods
+kubectl get svc
+kubectl get ingress
+kubectl logs -f -l app=api-gateway
+kubectl logs -f -l app=auth-svc
+kubectl logs -f -l app=data-svc
+kubectl logs -f -l app=ml-api
+kubectl logs -f -l app=postgres
 ```
 
-### Option 2: Local Secrets File (Not Committed)
+## Rebuilding a Single Service
 
-Create a `secrets.local.yaml` file (gitignored):
+Example for `auth-svc`:
 
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: oauth-secret
-type: Opaque
-stringData:
-  google-client-id: "your-actual-client-id"
-  google-client-secret: "your-actual-secret"
-  redirect-url: "http://localhost/auth/google/callback"
-```
-
-Then apply it manually:
 ```bash
-kubectl apply -f deploy/k8s/secrets.local.yaml
+docker build -f Dockerfile.auth-svc -t diabrisk-auth:dev services/auth-svc
+k3d image import --cluster diabrisk diabrisk-auth:dev
+kubectl rollout restart deployment/auth-svc
+kubectl rollout status deployment/auth-svc
 ```
-
-## Getting Google OAuth Credentials
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Create a new OAuth 2.0 Client ID
-3. Set authorized redirect URI: `http://localhost/auth/google/callback`
-4. Copy the Client ID and Client Secret
-
-## Security Note
-
-**Never commit real credentials to git!** Always use:
-- Environment variables
-- `.env.local` files (gitignored)
-- Kubernetes secrets created from external sources
-- Secret management tools (Vault, SOPS, sealed-secrets)

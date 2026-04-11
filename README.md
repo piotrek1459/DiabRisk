@@ -1,256 +1,111 @@
-# 🩺 DiabRisk — Diabetes Risk Screener Platform
+# DiabRisk
 
-**DiabRisk** is an educational web application that estimates the risk of developing **Type 2 Diabetes (T2DM)** using routine, non-invasive health metrics such as age, BMI, blood pressure, and glucose.  
-The project demonstrates how interpretable **machine learning** can be integrated into a **cloud-native microservices** architecture.
+DiabRisk is an educational web application for estimating diabetes risk
+from 21 health indicators derived from the BRFSS 2015 dataset. The current
+system is a small Kubernetes-based stack with a Svelte frontend, Go
+services for gateway and authentication, a FastAPI ML service, and
+PostgreSQL.
 
----
-## 🚀 Quick Start (Local Kubernetes)
+## Current Application Flow
 
-**Requirements:** Docker, k3d, kubectl
+1. The user registers or logs in with email and password.
+2. `auth-svc` creates a `session_token` HttpOnly cookie.
+3. After login, the frontend shows the risk form with 21 fields.
+4. The frontend submits the form to `POST /api/risk`.
+5. `api-gateway` validates the session through `auth-svc`.
+6. `ml-api` loads the model artifact and returns:
+   - `RiskPercent`
+   - `Category`
+   - `Message`
 
-### Windows (PowerShell)
+## Quick Start
+
+### Requirements
+
+- Docker
+- k3d
+- kubectl
+
+### Windows
+
 ```powershell
-cd C:\Users\YourUser\Documents\DiabRisk
 .\scripts\install-local-k3d.ps1
 ```
 
-### Linux/Mac (Bash)
+### Linux / macOS
+
 ```bash
-cd ~/DiabRisk
 ./scripts/install-local-k3d.sh
 ```
 
-Then open **http://localhost** to access the application.
+Then open `http://localhost`.
 
-**Default Credentials:**
+### Default Local Credentials
+
+The setup script seeds a default admin account:
+
 - Email: `admin@diabrisk.local`
 - Password: `default_admin_password`
 
-**Troubleshooting:**
-```bash
-# View logs
-kubectl logs -f -l app=api-gateway
-kubectl logs -f -l app=auth-svc
-kubectl logs -f -l app=ml-api
+You can override both values with `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+before running the install script.
 
-# Port forward to services (if needed)
-kubectl port-forward svc/ml-api 8000:8000
-kubectl port-forward svc/auth-svc 8081:8081
+## Runtime Components
 
-# Access API directly (for testing)
-curl http://localhost/auth/session
-curl -X POST http://localhost/auth/login -H "Content-Type: application/json" -d '{"email":"admin@diabrisk.local","password":"default_admin_password"}'
-```
+| Component | Technology | Responsibility |
+|----------|------------|----------------|
+| frontend | Svelte 5 + Vite + Nginx | login/register UI, risk form, result display |
+| api-gateway | Go + Gin | browser-facing backend entrypoint, auth middleware, proxying |
+| auth-svc | Go + Gin | registration, login, logout, session validation |
+| ml-api | Python 3.12 + FastAPI | feature validation, model loading, prediction |
+| data-svc | Go binary | waits for PostgreSQL, runs migrations, verifies schema |
+| postgres | PostgreSQL 16 | stores users, sessions, and seeded schema tables |
+| ingress | Traefik on k3d | exposes `/`, `/auth/*`, and `/api/*` on `localhost` |
 
----
+## Repository Map
 
-## 🏗️ Current Architecture
+| Path | Purpose |
+|------|---------|
+| `frontend/` | Svelte application |
+| `services/api-gateway/` | gateway service and auth middleware |
+| `services/auth-svc/` | local account authentication and sessions |
+| `services/data-svc/` | migration runner and schema verification |
+| `src/FastAPI/` | ML inference API |
+| `src/Ml/` | model training scripts |
+| `models/` | current joblib model artifact |
+| `deploy/k8s/` | Kubernetes manifests used by local deployment scripts |
+| `docs/` | user, contributor, and design documentation |
+| `data/` | raw dataset and precomputed processed splits |
 
-| Component | Technology | Status | Purpose |
-|------------|-------------|---------|----------|
-| **Frontend** | Svelte + Vite | ✅ Deployed | SPA with email/password auth, risk assessment form |
-| **API Gateway** | Go (Gin) | ✅ Deployed | Routes requests, authentication middleware, CORS handling |
-| **Auth Service** | Go (Gin) | ✅ Deployed | Local email/password authentication, session management with secure cookies |
-| **Data Service** | Go (Gin) | ✅ Deployed | Database migrations, CRUD operations, PostgreSQL integration |
-| **ML Service** | Python (FastAPI) | ✅ Deployed on k3d | Risk prediction using trained Random Forest model |
-| **Database** | PostgreSQL 16 | ✅ Deployed on k3d | User profiles, assessments, sessions, audit logs |
-| **Deployment** | Kubernetes (k3d) | ✅ Working | Microservices with Traefik ingress on localhost |
+## Current Scope
 
----
+The current user-facing application provides:
 
-## 🎯 Current Features (Phase 2 Complete)
-- 🔐 **Local authentication** with email/password and secure session management (SHA-512 hashed tokens, 7-day expiry)
-- 👤 **User profiles** with optional full name and email display
-- 📊 **Risk assessment form** for collecting health metrics (age, BMI, blood pressure, glucose, etc.)
-- 💾 **Persistent storage** of user data and assessments in PostgreSQL
-- 🔄 **Database migrations** with automatic schema management
-- 🛡️ **Protected routes** requiring authentication to access assessment tool
-- 📝 **Audit logging** for GDPR compliance (tracks login, assessment creation, data access)
-- 🏗️ **Microservices architecture** with separate auth, data, gateway, and ML services
-- 🤖 **ML-powered risk prediction** integrated with FastAPI service running on k3d
+- account registration
+- account login and logout
+- session restoration after refresh
+- a protected risk-assessment form
+- immediate display of prediction results
 
-### 🚧 Upcoming Features (Phase 3)
-- 📊 **Explainable output** (per-feature importance, calibration chart)
-- 🧾 **PDF report generation** and download
-- 📂 **Data export** (CSV/JSON) and account deletion UI
-- 🧠 **Model card** documenting dataset, metrics, and bias checks
-- 💡 **Personalized recommendations** for lifestyle changes
-- 📱 **Mobile-responsive design** improvements
+The current application does not provide a user-facing flow for:
 
----
+- assessment history
+- report download
+- CSV or JSON export
+- account deletion
+- feature-level explanation charts
 
-## 🧱 Repository Structure
+## Documentation
 
-```
-diabrisk/
-├── docs/                   # System vision, dictionary, model cards
-├── services/
-│   ├── api-gateway/        # Entry point, auth middleware, service routing (Go + Gin)
-│   ├── auth-svc/           # Google OAuth 2.0, session management (Go + Gin)
-│   ├── data-svc/           # Database migrations, CRUD operations (Go + Gin + pgx)
-│   ├── report-svc/         # PDF generation (planned)
-│   └── ml-api/             # Risk prediction inference (deployed separately)
-├── data/                   # ML datasets (processed and raw)
-│   ├── processed/          # X_train/test, y_train/test CSVs
-│   └── raw/                # BRFSS 2015 dataset
-├── src/
-│   ├── Ml/                 # Model training scripts
-│   └── FastAPI/            # ML inference API (deployed on server)
-├── frontend/               # Svelte + Vite SPA with OAuth UI
-├── deploy/k8s/             # Kubernetes manifests (postgres, services, ingress)
-├── scripts/                # install-local-k3d.sh deployment script
-└── Dockerfile.*            # Multi-stage builds for each service
-```
+| Folder | Audience |
+|--------|----------|
+| `docs/user/` | people using the application |
+| `docs/contributor/` | developers extending the repository |
+| `docs/design/` | implementation-focused design documentation |
 
----
+## License
 
-## 🗄️ Database Schema
+Educational and non-commercial use only.
 
-The PostgreSQL database stores all application data with the following tables:
-
-| Table | Purpose | Key Relationships |
-|-------|---------|-------------------|
-| **users** | User profiles from Google OAuth | Primary key for auth_sessions, assessments |
-| **auth_sessions** | Secure session tokens (SHA-512 hashed) | Foreign key to users |
-| **model_versions** | ML model metadata and performance metrics | Referenced by assessments |
-| **assessments** | User health data and risk predictions | Foreign keys to users and model_versions |
-| **reports** | Generated PDF reports | Foreign key to assessments |
-| **audit_logs** | User actions for GDPR compliance | Foreign key to users |
-
-**Why we need the database:**
-- Track assessment history over time for each user
-- Enable GDPR compliance (data export, right to be forgotten)
-- Model versioning and reproducibility
-- Secure session management without JWTs
-- Audit trail for regulatory requirements
-
----
-
-## 🧬 Machine Learning
-
-- **Training data:** BRFSS 2015 — curated diabetes health indicators dataset  
-- **Model used:** Random Forest Classifier  
-- **Prediction goals:**  
-  - Multiclass diabetes status (0 = healthy, 1 = prediabetes, 2 = diabetes)  
-  - Estimated risk presented also as a **percentage probability**  
-- **Preprocessing:**  
-  - Raw features preserved for recommendation logic  
-  - Scaled numerical features (BMI, MentHlth, PhysHlth) used for model training   
-- **Recommendation engine:**  
-  - Generates simple lifestyle-oriented suggestions based on raw patient data  
-  - Uses rule-based logic (e.g., high BMI, no physical activity, poor diet)
-- **Model training setup:**  
-  - Stratified train/test split  
-  - Processed datasets stored as CSV (`X_train_processed`, `X_test_processed`, etc.)
-
-Model artifacts and reproducible training scripts are located in `ml/`.  
-Each model version iCurrent Implementation
-
-## ML Results
-```
-=== MODEL 1 ===
-              precision    recall  f1-score   support
-
-           0      0.878     0.951     0.913     42740
-           1      0.975     0.934     0.954     85482
-
-    accuracy                          0.940    128222
-   macro avg      0.926     0.943     0.933    128222
-weighted avg      0.942     0.940     0.940    128222
-
-```
-```
-
-=== MODEL 2 ===
-              precision    recall  f1-score   support
-
-           0      0.974     0.990     0.982     42741
-           1      0.990     0.974     0.982     42741
-
-    accuracy                          0.982     85482
-   macro avg      0.982     0.982     0.982     85482
-weighted avg      0.982     0.982     0.982     85482
-
-```
-
-```
-User Browser
-   │
-   ├──→ http://localhost (Traefik Ingress)
-   │
-   ▼
-Svelte Frontend (Port 80)
-   │
-   ├──→ /auth/* → API Gateway → Auth Service
-   │                             ├─→ Google OAuth 2.0
-   │                             └─→ PostgreSQL (auth_sessions)
-   │
-   ├──→ /api/* → API Gateway (with auth middleware)
-   │              │
-   │              ├──→ Data Service → PostgreSQL
-   │              │     (users, assessments, audit_logs)
-   │              │
-   │              └──→ ML Service (deployed on server)
-   │                    (risk prediction)
-   📋 Project Status
-
-### ✅ Phase 1 (Complete)
-- System Vision and Dictionary documentation
-- Repository structure with microservices
-- ML model training pipeline
-- Dataset preparation (BRFSS 2015)
-
-### ✅ Phase 2 (Complete)
-- PostgreSQL database with migrations (6 tables, seed data)
-- Google OAuth 2.0 authentication service
-- Secure session management (SHA-512 tokens, 7-day expiry)
-- API Gateway with authentication middleware
-- Data service for CRUD operations
-- Svelte frontend with OAuth UI
-- Kubernetes deployment (k3d)
-- One-command setup script
-
-### 🚧 Phase 3 (In Progress)
-- ML service integration (deployed separately)
-- Risk assessment prediction flow
-- PDF report generation
-- Explainability features (SHAP/LIME)
-- Data export and account deletion UI
-- Model card documentation
-├── auth-svc (port 8081)
-├── data-svc (port 8082, runs migrations)
-├── api-gateway (port 8080)
-└── frontend (port 80)
-```
-
-**Authentication Flow:**
-1. User clicks "Sign in with Google"
-2. Redirected to Google OAuth consent screen
-3. Callback to `/auth/google/callback` with code
-4. Auth service exchanges code for user info
-5. Creates/finds user in database
-6. Generates secure session token (SHA-512 hash)
-7. Sets HttpOnly cookie with domain=localhost
-8. User can access protected `/api/risk` endpoint
- └──→ Report Service (PDF generator)
-```
-
-Session-based authentication (OAuth / magic link) allows users to view and manage their report history securely.
-
----
-
-
-
-## 📜 License
-Educational and non-commercial use only.  
-This software is **not a certified medical device** and must not be used for clinical diagnosis or treatment.
-
----
-
-## 👥 Authors
-- **Team:** Software Engineering Project (Silesian University of Technology)  
-- **Contact:** <piotrek1459@gmail.com>,
-               <jeremiszcotka7@gmail.com>
----
-
-**DiabRisk** — empowering early awareness through open, interpretable machine learning.
+DiabRisk is not a certified medical device and must not be used for
+clinical diagnosis or treatment.
