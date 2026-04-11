@@ -1,5 +1,5 @@
-from typing import Any, Dict, Optional
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 import os
 import numpy as np
@@ -8,14 +8,14 @@ from pydantic import BaseModel, Field
 from joblib import load
 
 
-# --- scaler data --- 
+# --- scaler data ---
 SCALER_MEAN = {
     "BMI": 28.391265570797856,
     "MentHlth": 3.177388836329232,
     "PhysHlth": 4.232379375591297,
 }
 
-SCALER_SCALE = {  
+SCALER_SCALE = {
     "BMI": 6.616426071801123,
     "MentHlth": 7.401493591748837,
     "PhysHlth": 8.709293119641702,
@@ -23,28 +23,35 @@ SCALER_SCALE = {
 
 # --- paths & cache ---
 BASE_DIR = Path(__file__).resolve().parent
+REPO_DIR = BASE_DIR.parents[1]
 
 CANDIDATES = [
-    os.environ.get("MODEL_PATH"),                     # 1) explicit override (Docker/Prod)
-    str(BASE_DIR / "models" / "model.joblib"),        # 2) local dev (new name)
-    str(BASE_DIR / "models" / "diabrisk_screening.joblib"),  # 3) local dev (old name)
-    "/opt/models/model.joblib",                       # 4) server default
+    os.environ.get("MODEL_PATH"),  # 1) explicit override (Docker/Prod)
+    str(REPO_DIR / "models" / "model.joblib"),  # 2) local dev (new name)
+    str(REPO_DIR / "models" / "diabrisk_screening.joblib"),  # 3) local dev (old name)
+    str(BASE_DIR / "models" / "model.joblib"),  # 4) package-local fallback
+    str(BASE_DIR / "models" / "diabrisk_screening.joblib"),  # 5) package-local fallback
+    "/opt/models/model.joblib",  # 6) server default
 ]
 
-MODEL_PATH = next(
-    (Path(p).expanduser().resolve() for p in CANDIDATES if p and Path(p).expanduser().exists()),
-    None
-)
+MODEL_PATH: Optional[Path] = None
+_artifact: Optional[dict] = None
 
-if MODEL_PATH is None:
+
+def candidate_model_paths() -> list[Path]:
+    return [Path(p).expanduser() for p in CANDIDATES if p]
+
+
+def resolve_model_path() -> Path:
+    for path in candidate_model_paths():
+        if path.exists():
+            return path.resolve()
+
     raise RuntimeError(
-        "Model file not found. Tried: " + ", ".join(p for p in CANDIDATES if p)
+        "Model file not found. Tried: "
+        + ", ".join(str(path) for path in candidate_model_paths())
     )
 
-
-
-
-_artifact: Optional[dict] = None
 
 def apply_training_scaling(X, feature_names):
     X_scaled = X.copy()
@@ -56,9 +63,16 @@ def apply_training_scaling(X, feature_names):
     return X_scaled
 
 
+def prepare_X_for_model(features: Dict[str, Any], feature_names: list[str]):
+    X = build_X(features, feature_names)
+    return apply_training_scaling(X, feature_names)
+
+
 def load_artifact() -> dict:
-    global _artifact
+    global MODEL_PATH, _artifact
     if _artifact is None:
+        if MODEL_PATH is None:
+            MODEL_PATH = resolve_model_path()
         if not MODEL_PATH.exists():
             raise RuntimeError(f"Model file not found: {MODEL_PATH}")
         _artifact = load(MODEL_PATH)
@@ -119,11 +133,9 @@ def predict(req: PredictRequest):
     model1 = art["model1"]
     feature_names = art["feature_names"]
 
-    X = build_X(req.features, feature_names)
+    X = prepare_X_for_model(req.features, feature_names)
 
-    X = apply_training_scaling(X, feature_names)
-
-    risk_score = 1 - model1.predict_proba(X)[0, 1]
+    risk_score = model1.predict_proba(X)[0, 1]
 
     # --- decision logic ---
     if risk_score > 0.80:
