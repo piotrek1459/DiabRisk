@@ -23,6 +23,8 @@ If your default `python` does not point at the project environment, pass it expl
 make test-ml PYTHON=src\Ml\env\Scripts\python.exe
 ```
 
+For the detailed Python unit test scope and conventions, see `tests/README.md`.
+
 ## Test Structure
 
 | Service | Test file | Coverage |
