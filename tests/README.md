@@ -1,8 +1,11 @@
-# Python Unit Tests
+# Python Tests
 
-This directory contains Python unit tests for the ML parts of DiabRisk.
-They focus on application contracts and preprocessing behavior, not on model
-quality or Kubernetes deployment behavior.
+This directory contains the Python test layers for DiabRisk. The root-level
+`test_*.py` files are fast ML unit tests. Slower cross-boundary checks live in
+subdirectories:
+
+- `integration/` for ML API HTTP integration tests,
+- `smoke/` for full local k3d stack smoke tests.
 
 ## Scope
 
@@ -12,6 +15,8 @@ The current Python unit test suite covers two areas:
 |------|-----------------|------------------|
 | `test_ml_api.py` | `src/FastAPI/ml_api.py` | ML API request validation, model path resolution, raw request preprocessing, prediction response contract |
 | `test_ml_training.py` | `src/Ml/main.py` | Loading training and test splits from `data/processed` |
+| `integration/test_ml_api_http.py` | `src/FastAPI/ml_api.py` | HTTP request handling, joblib artifact loading, prediction response contract |
+| `smoke/test_k3d_stack.py` | local k3d deployment | Frontend ingress, auth flow, protected gateway routes, ML prediction flow |
 
 These tests intentionally do not load the real `models/diabrisk_screening.joblib`
 artifact. The real model is large and its predictive quality is not the goal of
@@ -23,6 +28,18 @@ Run only the Python unit tests:
 
 ```powershell
 make test-ml PYTHON=src\Ml\env\Scripts\python.exe
+```
+
+Run the Python ML API integration tests:
+
+```powershell
+make test-integration PYTHON=src\Ml\env\Scripts\python.exe
+```
+
+Run the full local k3d smoke tests:
+
+```powershell
+make test-k3d PYTHON=src\Ml\env\Scripts\python.exe
 ```
 
 Run all unit tests in the repository:
@@ -106,7 +123,7 @@ and does not train a model.
 
 ## What These Tests Do Not Cover
 
-These are unit tests. They deliberately do not cover:
+The root-level tests are unit tests. They deliberately do not cover:
 
 - real model artifact loading,
 - model accuracy or prediction quality,
@@ -114,7 +131,7 @@ These are unit tests. They deliberately do not cover:
 - Kubernetes manifests, rollouts, probes, or resource usage,
 - database behavior.
 
-Those belong in smoke or integration tests if the project needs them later.
+Those belong in smoke or integration tests.
 
 ## CI
 
