@@ -90,9 +90,9 @@ func runMigrations(dbURL string) error {
 
 	version, dirty, err := m.Version()
 	if err != nil {
-		log.Println("⚠️  Could not get migration version:", err)
+		log.Println("  Could not get migration version:", err)
 	} else {
-		log.Printf("✅ Migrations complete! Current version: %d (dirty: %v)", version, dirty)
+		log.Printf(" Migrations complete! Current version: %d (dirty: %v)", version, dirty)
 	}
 
 	return nil

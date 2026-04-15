@@ -58,6 +58,14 @@ func authMiddleware() gin.HandlerFunc {
 }
 
 func main() {
+	r := createRouter()
+
+	if err := r.Run(":8080"); err != nil {
+		panic(err)
+	}
+}
+
+func createRouter() *gin.Engine {
 	r := gin.Default()
 
 	// CORS for local dev (Svelte on :5173)
@@ -150,9 +158,7 @@ func main() {
 		})
 	}
 
-	if err := r.Run(":8080"); err != nil {
-		panic(err)
-	}
+	return r
 }
 
 // proxyToAuthService forwards requests to auth-svc, preserving cookies
