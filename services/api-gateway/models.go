@@ -7,10 +7,11 @@ type riskPredictionRequest struct {
 }
 
 type riskPredictionResult struct {
-	RiskPercent float64 `json:"RiskPercent"`
-	Category    string  `json:"Category"`
-	Message     string  `json:"Message"`
-	GeneratedAt string  `json:"GeneratedAt,omitempty"`
+	AssessmentID string  `json:"AssessmentID,omitempty"`
+	RiskPercent  float64 `json:"RiskPercent"`
+	Category     string  `json:"Category"`
+	Message      string  `json:"Message"`
+	GeneratedAt  string  `json:"GeneratedAt,omitempty"`
 }
 
 type assessmentCandidate struct {
@@ -18,8 +19,23 @@ type assessmentCandidate struct {
 	Features    map[string]interface{} `json:"features"`
 	RiskPercent float64                `json:"risk_percent"`
 	Category    string                 `json:"category"`
-	Message     string                 `json:"message"`
 	GeneratedAt time.Time              `json:"generated_at"`
+}
+
+type assessmentHistoryItem struct {
+	ID             string                 `json:"id"`
+	UserID         string                 `json:"user_id,omitempty"`
+	ModelVersionID string                 `json:"model_version_id,omitempty"`
+	Features       map[string]interface{} `json:"features"`
+	RiskPercent    float64                `json:"risk_percent"`
+	Category       string                 `json:"category"`
+	Message        string                 `json:"message"`
+	CreatedAt      time.Time              `json:"created_at"`
+}
+
+type assessmentHistoryResponse struct {
+	Items []assessmentHistoryItem `json:"items"`
+	Count int                     `json:"count"`
 }
 
 type authUser struct {

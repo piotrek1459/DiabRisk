@@ -90,6 +90,7 @@ func createRouterWithConfig(config serviceConfig) *gin.Engine {
 	{
 		api.POST("/risk", handler.handleRiskPrediction)
 		api.GET("/features", handler.handleFeatures)
+		api.GET("/history", handler.handleAssessmentHistory)
 	}
 
 	return r

@@ -18,6 +18,15 @@ func withMLServiceURL(t *testing.T, url string) {
 	})
 }
 
+func withDataServiceURL(t *testing.T, url string) {
+	t.Helper()
+	original := dataServiceURL
+	dataServiceURL = url
+	t.Cleanup(func() {
+		dataServiceURL = original
+	})
+}
+
 func TestGatewayIntegration_ProtectedRiskRouteValidatesSessionAndCallsML(t *testing.T) {
 	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/auth/session" {
@@ -48,8 +57,18 @@ func TestGatewayIntegration_ProtectedRiskRouteValidatesSessionAndCallsML(t *test
 	}))
 	defer mlServer.Close()
 
+	dataServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/internal/assessments" {
+			t.Fatalf("unexpected data service request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"assessment-1","features":{"BMI":30},"risk_percent":0.63,"category":"medium","message":"ok","created_at":"2026-04-23T12:00:00Z"}`)
+	}))
+	defer dataServer.Close()
+
 	withAuthServiceURL(t, authServer.URL)
 	withMLServiceURL(t, mlServer.URL)
+	withDataServiceURL(t, dataServer.URL)
 
 	router := createRouter()
 	req := httptest.NewRequest(http.MethodPost, "/api/risk", strings.NewReader(`{"features":{"BMI":30}}`))

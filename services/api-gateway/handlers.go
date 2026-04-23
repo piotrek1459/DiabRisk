@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,16 +10,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
-type assessmentRecorder interface {
-	PrepareForHistory(*assessmentCandidate) error
-}
-
-type noopAssessmentRecorder struct{}
-
-func (noopAssessmentRecorder) PrepareForHistory(*assessmentCandidate) error {
-	return nil
-}
 
 type gatewayHandler struct {
 	config   serviceConfig
@@ -28,7 +19,7 @@ type gatewayHandler struct {
 func newGatewayHandler(config serviceConfig) gatewayHandler {
 	return gatewayHandler{
 		config:   config,
-		recorder: noopAssessmentRecorder{},
+		recorder: newAssessmentRecorder(config),
 	}
 }
 
@@ -64,7 +55,8 @@ func (h gatewayHandler) handleRiskPrediction(c *gin.Context) {
 		return
 	}
 
-	prediction.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
+	generatedAt := time.Now().UTC()
+	prediction.GeneratedAt = generatedAt.Format(time.RFC3339)
 
 	user, err := currentAuthUser(c)
 	if err != nil {
@@ -77,14 +69,17 @@ func (h gatewayHandler) handleRiskPrediction(c *gin.Context) {
 		Features:    featuresPayload,
 		RiskPercent: prediction.RiskPercent,
 		Category:    prediction.Category,
-		Message:     prediction.Message,
-		GeneratedAt: time.Now().UTC(),
+		GeneratedAt: generatedAt,
 	}
 
-	if err := h.recorder.PrepareForHistory(assessment); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare assessment for history"})
+	recordedAssessment, err := h.recorder.Record(c.Request.Context(), assessment)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save assessment history"})
 		return
 	}
+
+	prediction.AssessmentID = recordedAssessment.ID
+	prediction.GeneratedAt = recordedAssessment.CreatedAt.UTC().Format(time.RFC3339)
 
 	c.JSON(http.StatusOK, prediction)
 }
@@ -104,6 +99,28 @@ func (h gatewayHandler) handleFeatures(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, features)
+}
+
+func (h gatewayHandler) handleAssessmentHistory(c *gin.Context) {
+	user, err := currentAuthUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authenticated user context"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	items, err := h.recorder.ListByUser(ctx, user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load assessment history"})
+		return
+	}
+
+	c.JSON(http.StatusOK, assessmentHistoryResponse{
+		Items: items,
+		Count: len(items),
+	})
 }
 
 func extractFeaturesPayload(req map[string]interface{}) map[string]interface{} {
