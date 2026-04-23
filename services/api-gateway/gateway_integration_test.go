@@ -61,7 +61,11 @@ func TestGatewayIntegration_ProtectedRiskRouteValidatesSessionAndCallsML(t *test
 		if r.Method != http.MethodPost || r.URL.Path != "/internal/assessments" {
 			t.Fatalf("unexpected data service request: %s %s", r.Method, r.URL.Path)
 		}
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Fatalf("expected content type application/json, got %q", got)
+		}
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
 		_, _ = io.WriteString(w, `{"id":"assessment-1","features":{"BMI":30},"risk_percent":0.63,"category":"medium","message":"ok","created_at":"2026-04-23T12:00:00Z"}`)
 	}))
 	defer dataServer.Close()
