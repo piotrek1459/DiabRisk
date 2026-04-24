@@ -24,7 +24,7 @@ func newGatewayHandler(config serviceConfig) gatewayHandler {
 }
 
 func authMiddleware() gin.HandlerFunc {
-	return authMiddlewareWithConfig(loadServiceConfig())
+	return authMiddlewareWithConfig(newServiceConfig())
 }
 
 func (h gatewayHandler) handleRiskPrediction(c *gin.Context) {
@@ -137,29 +137,14 @@ func currentAuthUser(c *gin.Context) (*authUser, error) {
 		return nil, errors.New("missing user in request context")
 	}
 
-	userMap, ok := rawUser.(map[string]interface{})
+	user, ok := rawUser.(authUser)
 	if !ok {
 		return nil, errors.New("unexpected user payload type")
 	}
 
-	userID, ok := userMap["id"].(string)
-	if !ok || userID == "" {
+	if user.ID == "" {
 		return nil, errors.New("missing user id")
 	}
 
-	email, _ := userMap["email"].(string)
-	role, _ := userMap["role"].(string)
-	fullName, _ := userMap["full_name"].(string)
-
-	var fullNamePtr *string
-	if fullName != "" {
-		fullNamePtr = &fullName
-	}
-
-	return &authUser{
-		ID:       userID,
-		Email:    email,
-		FullName: fullNamePtr,
-		Role:     role,
-	}, nil
+	return &user, nil
 }

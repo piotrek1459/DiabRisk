@@ -14,6 +14,8 @@ type assessmentRepository struct {
 	pool *pgxpool.Pool
 }
 
+const defaultModelVersion = "v1.0.0"
+
 func newAssessmentRepository(pool *pgxpool.Pool) assessmentRepository {
 	return assessmentRepository{pool: pool}
 }
@@ -26,7 +28,7 @@ func (r assessmentRepository) createAssessment(ctx context.Context, req createAs
 		return nil, fmt.Errorf("features are required")
 	}
 
-	modelVersionID, err := r.activeModelVersionID(ctx)
+	modelVersionID, err := r.defaultModelVersionID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -47,8 +49,6 @@ func (r assessmentRepository) createAssessment(ctx context.Context, req createAs
 		return nil, err
 	}
 
-	confidenceLevel := confidenceLevelForRisk(req.RiskPercent)
-
 	record := &assessmentRecord{
 		UserID:         req.UserID,
 		ModelVersionID: modelVersionID,
@@ -65,12 +65,10 @@ func (r assessmentRepository) createAssessment(ctx context.Context, req createAs
 			model_version_id,
 			features,
 			raw_score,
-			calibrated_score,
 			risk_level,
-			confidence_level,
 			created_at
 		)
-		VALUES ($1, $2, $3::jsonb, $4, NULL, $5, $6, $7)
+		VALUES ($1, $2, $3::jsonb, $4, $5, $6)
 		RETURNING id
 	`,
 		record.UserID,
@@ -78,7 +76,6 @@ func (r assessmentRepository) createAssessment(ctx context.Context, req createAs
 		string(featuresJSON),
 		record.RiskPercent,
 		riskLevel,
-		confidenceLevel,
 		record.CreatedAt,
 	).Scan(&record.ID)
 	if err != nil {
@@ -140,15 +137,13 @@ func (r assessmentRepository) listAssessmentsByUser(ctx context.Context, userID 
 	return records, nil
 }
 
-func (r assessmentRepository) activeModelVersionID(ctx context.Context) (string, error) {
+func (r assessmentRepository) defaultModelVersionID(ctx context.Context) (string, error) {
 	var modelVersionID string
 	err := r.pool.QueryRow(ctx, `
 		SELECT id
 		FROM model_versions
-		WHERE is_active = TRUE
-		ORDER BY trained_at DESC
-		LIMIT 1
-	`).Scan(&modelVersionID)
+		WHERE version = $1
+	`, defaultModelVersion).Scan(&modelVersionID)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve active model version: %w", err)
 	}
@@ -184,16 +179,6 @@ func riskLevelToCategory(riskLevel string) string {
 	default:
 		return "unknown"
 	}
-}
-
-func confidenceLevelForRisk(riskPercent float64) string {
-	if riskPercent >= 0.8 {
-		return "high"
-	}
-	if riskPercent >= 0.5 {
-		return "medium"
-	}
-	return "low"
 }
 
 func messageForCategory(category string) string {

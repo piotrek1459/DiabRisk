@@ -17,11 +17,7 @@ func init() {
 
 func withAuthServiceURL(t *testing.T, url string) {
 	t.Helper()
-	original := authServiceURL
-	authServiceURL = url
-	t.Cleanup(func() {
-		authServiceURL = original
-	})
+	t.Setenv("AUTH_SERVICE_URL", url)
 }
 
 func decodeJSONBody(t *testing.T, w *httptest.ResponseRecorder) map[string]interface{} {

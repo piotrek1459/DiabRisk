@@ -11,20 +11,12 @@ import (
 
 func withMLServiceURL(t *testing.T, url string) {
 	t.Helper()
-	original := mlServiceURL
-	mlServiceURL = url
-	t.Cleanup(func() {
-		mlServiceURL = original
-	})
+	t.Setenv("ML_SERVICE_URL", url)
 }
 
 func withDataServiceURL(t *testing.T, url string) {
 	t.Helper()
-	original := dataServiceURL
-	dataServiceURL = url
-	t.Cleanup(func() {
-		dataServiceURL = original
-	})
+	t.Setenv("DATA_SERVICE_URL", url)
 }
 
 func TestGatewayIntegration_ProtectedRiskRouteValidatesSessionAndCallsML(t *testing.T) {

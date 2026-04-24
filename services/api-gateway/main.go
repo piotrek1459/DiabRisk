@@ -34,9 +34,9 @@ func authMiddlewareWithConfig(config serviceConfig) gin.HandlerFunc {
 		defer resp.Body.Close()
 
 		// Parse user info from response
-		var userInfo map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&userInfo); err == nil {
-			c.Set("user", userInfo)
+		var user authUser
+		if err := json.NewDecoder(resp.Body).Decode(&user); err == nil {
+			c.Set("user", user)
 		}
 
 		c.Next()
@@ -44,7 +44,7 @@ func authMiddlewareWithConfig(config serviceConfig) gin.HandlerFunc {
 }
 
 func main() {
-	config := loadServiceConfig()
+	config := newServiceConfig()
 	r := createRouterWithConfig(config)
 
 	if err := r.Run(":8080"); err != nil {
@@ -53,7 +53,7 @@ func main() {
 }
 
 func createRouter() *gin.Engine {
-	return createRouterWithConfig(loadServiceConfig())
+	return createRouterWithConfig(newServiceConfig())
 }
 
 func createRouterWithConfig(config serviceConfig) *gin.Engine {
@@ -98,7 +98,7 @@ func createRouterWithConfig(config serviceConfig) *gin.Engine {
 
 // proxyToAuthService forwards requests to auth-svc, preserving cookies.
 func proxyToAuthService(c *gin.Context) {
-	proxyToAuthServiceWithConfig(loadServiceConfig())(c)
+	proxyToAuthServiceWithConfig(newServiceConfig())(c)
 }
 
 func proxyToAuthServiceWithConfig(config serviceConfig) gin.HandlerFunc {
