@@ -4,6 +4,11 @@ from pathlib import Path
 from joblib import dump
 
 
+RF_N_ESTIMATORS = 300
+MODEL2_CLASS_WEIGHT = {0: 1, 1: 2}
+MODEL2_SMOTE_SAMPLING_STRATEGY = 0.5
+
+
 class CascadeDiabetesModel:
     def __init__(self, model1, model2):
         self.model1 = model1
@@ -23,46 +28,64 @@ class CascadeDiabetesModel:
 
 
 def train_cascade_with_splits(X_train, X_test, y_train, y_test, random_state=42):
+    from imblearn.over_sampling import SMOTE
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.metrics import classification_report
+    from sklearn.metrics import classification_report, confusion_matrix
 
     y_train_m1 = np.where(y_train == 0, 0, 1)
     y_test_m1 = np.where(y_test == 0, 0, 1)
+    smote_m1 = SMOTE(random_state=random_state)
+    X_train_m1_res, y_train_m1_res = smote_m1.fit_resample(X_train, y_train_m1)
 
     model1 = RandomForestClassifier(
-        n_estimators=40,
+        n_estimators=RF_N_ESTIMATORS,
         max_depth=12,
         min_samples_leaf=10,
         n_jobs=-1,
         random_state=random_state,
         class_weight="balanced",
     )
-    model1.fit(X_train, y_train_m1)
+    model1.fit(X_train_m1_res, y_train_m1_res)
 
     print("\n=== MODEL 1 ===")
+    print(f"train distribution [healthy, at-risk]: {np.bincount(y_train_m1)}")
+    print(f"SMOTE distribution [healthy, at-risk]: {np.bincount(y_train_m1_res)}")
     print(classification_report(y_test_m1, model1.predict(X_test), digits=3))
 
     train_mask = y_train != 0
     test_mask = y_test != 0
+    y_train_m2 = np.where(y_train[train_mask] == 1, 1, 0)
+    y_test_m2 = np.where(y_test[test_mask] == 1, 1, 0)
+    smote_m2 = SMOTE(
+        random_state=random_state,
+        sampling_strategy=MODEL2_SMOTE_SAMPLING_STRATEGY,
+    )
+    X_train_m2_res, y_train_m2_res = smote_m2.fit_resample(
+        X_train[train_mask],
+        y_train_m2,
+    )
 
     model2 = RandomForestClassifier(
-        n_estimators=40,
+        n_estimators=RF_N_ESTIMATORS,
         max_depth=12,
         min_samples_leaf=10,
         n_jobs=-1,
         random_state=random_state,
-        class_weight="balanced",
+        class_weight=MODEL2_CLASS_WEIGHT,
     )
-    model2.fit(X_train[train_mask], np.where(y_train[train_mask] == 1, 1, 0))
+    model2.fit(X_train_m2_res, y_train_m2_res)
 
     print("\n=== MODEL 2 ===")
-    print(
-        classification_report(
-            np.where(y_test[test_mask] == 1, 1, 0),
-            model2.predict(X_test[test_mask]),
-            digits=3,
-        )
-    )
+    print(f"class_weight={MODEL2_CLASS_WEIGHT}")
+    print(f"train distribution [diabetes, prediabetes]: {np.bincount(y_train_m2)}")
+    print(f"SMOTE distribution [diabetes, prediabetes]: {np.bincount(y_train_m2_res)}")
+    print(f"test distribution  [diabetes, prediabetes]: {np.bincount(y_test_m2)}")
+
+    y_pred_m2 = model2.predict(X_test[test_mask])
+    print(f"pred distribution  [diabetes, prediabetes]: {np.bincount(y_pred_m2)}")
+    print("confusion matrix rows=true cols=pred [diabetes, prediabetes]:")
+    print(confusion_matrix(y_test_m2, y_pred_m2, labels=[0, 1]))
+    print(classification_report(y_test_m2, y_pred_m2, digits=3))
 
     return CascadeDiabetesModel(model1, model2)
 
@@ -88,22 +111,16 @@ def load_processed_splits(base_dir: Path):
 
 
 def main():
-    from imblearn.over_sampling import SMOTE
-
     random_state = 42
 
     base_dir = Path(__file__).resolve().parents[2]
     X_train, X_test, y_train, y_test, feature_names = load_processed_splits(base_dir)
 
-    # Keep SMOTE limited to the training split; the processed test split remains unseen.
-    smote = SMOTE(random_state=random_state)
-    X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
-
     print("\n>>> Training cascade model...")
     cascade = train_cascade_with_splits(
-        X_train_res,
+        X_train,
         X_test,
-        y_train_res,
+        y_train,
         y_test,
         random_state=random_state,
     )
