@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import Login from "./lib/Login.svelte";
   import Register from "./lib/Register.svelte";
+  import AssessmentHistory from "./lib/AssessmentHistory.svelte";
 
   const API_BASE = "";
 
@@ -57,6 +58,9 @@
   let error: string | null = null;
   let result: any = null;
   let user: any = null;
+  let historyItems: any[] = [];
+  let historyLoading = false;
+  let historyError: string | null = null;
   let checkingAuth = true;
   let authMode: "login" | "register" = "login";
 
@@ -71,6 +75,7 @@
       });
       if (res.ok) {
         user = await res.json();
+        await loadHistory();
       }
     } catch (e) {
       // Not logged in, that's ok
@@ -81,10 +86,12 @@
 
   function handleLoginSuccess(userData: any) {
     user = userData;
+    loadHistory();
   }
 
   function handleRegisterSuccess(userData: any) {
     user = userData;
+    loadHistory();
   }
 
   function switchToLogin() {
@@ -103,9 +110,34 @@
       });
       user = null;
       result = null;
+      historyItems = [];
+      historyError = null;
       authMode = "login";
     } catch (e) {
       console.error("Logout failed:", e);
+    }
+  }
+
+  async function loadHistory() {
+    historyLoading = true;
+    historyError = null;
+
+    try {
+      const res = await fetch(`/api/history`, {
+        credentials: "include"
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+
+      const payload = await res.json();
+      historyItems = payload.items ?? [];
+    } catch (e: any) {
+      historyError = e.message ?? "Failed to load history";
+    } finally {
+      historyLoading = false;
     }
   }
 
@@ -130,6 +162,7 @@
       }
 
       result = await res.json();
+      await loadHistory();
     } catch (e: any) {
       error = e.message ?? "Unknown error";
     } finally {
@@ -224,6 +257,8 @@
         </div>
       </section>
     {/if}
+
+    <AssessmentHistory items={historyItems} loading={historyLoading} error={historyError} />
   {/if}
 
   <p class="disclaimer">

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -14,42 +13,38 @@ import (
 )
 
 func main() {
-	// Get database connection string from environment
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "postgres://diabrisk:diabrisk123@postgres:5432/diabrisk?sslmode=disable"
-	}
+	config := loadConfig()
 
 	log.Println("Starting data-svc...")
-	log.Println("Database URL:", maskPassword(dbURL))
+	log.Println("Database URL:", maskPassword(config.dbURL))
 
-	// Wait for PostgreSQL to be ready
-	if err := waitForDB(dbURL); err != nil {
+	if err := waitForDB(config.dbURL); err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Run migrations
-	if err := runMigrations(dbURL); err != nil {
+	if err := runMigrations(config.dbURL); err != nil {
 		log.Fatal("Failed to run migrations:", err)
 	}
 
-	// Initialize connection pool
-	pool, err := pgxpool.New(context.Background(), dbURL)
+	pool, err := pgxpool.New(context.Background(), config.dbURL)
 	if err != nil {
 		log.Fatal("Failed to create connection pool:", err)
 	}
 	defer pool.Close()
 
-	// Verify schema
 	if err := verifySchema(pool); err != nil {
 		log.Fatal("Schema verification failed:", err)
 	}
 
-	log.Println("✅ data-svc initialized successfully!")
+	log.Println("data-svc initialized successfully")
 	log.Println("Database ready with all tables and seed data")
 
-	// Keep service running
-	select {}
+	repository := newAssessmentRepository(pool)
+	handler := newDataServiceHandler(repository)
+
+	if err := runHTTPServer(config.port, handler.routes()); err != nil {
+		log.Fatal("Failed to run data-svc HTTP server:", err)
+	}
 }
 
 func waitForDB(dbURL string) error {
@@ -111,8 +106,8 @@ func verifySchema(pool *pgxpool.Pool) error {
 		var exists bool
 		query := `
 			SELECT EXISTS (
-				SELECT FROM information_schema.tables 
-				WHERE table_schema = 'public' 
+				SELECT FROM information_schema.tables
+				WHERE table_schema = 'public'
 				AND table_name = $1
 			)
 		`
@@ -122,10 +117,9 @@ func verifySchema(pool *pgxpool.Pool) error {
 		if !exists {
 			return fmt.Errorf("table %s does not exist", table)
 		}
-		log.Printf("  ✓ Table '%s' exists", table)
+		log.Printf("  Table '%s' exists", table)
 	}
 
-	// Check seed data
 	var userCount, modelCount int
 	if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&userCount); err != nil {
 		return fmt.Errorf("failed to count users: %w", err)
@@ -134,12 +128,7 @@ func verifySchema(pool *pgxpool.Pool) error {
 		return fmt.Errorf("failed to count model_versions: %w", err)
 	}
 
-	log.Printf("  ✓ Found %d users and %d model versions", userCount, modelCount)
+	log.Printf("  Found %d users and %d model versions", userCount, modelCount)
 
 	return nil
-}
-
-func maskPassword(dbURL string) string {
-	// Simple password masking for logs
-	return "postgres://diabrisk:****@postgres:5432/diabrisk?sslmode=disable"
 }

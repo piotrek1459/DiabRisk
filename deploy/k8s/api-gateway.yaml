@@ -25,6 +25,8 @@ spec:
             value: "http://auth-svc:8081"
           - name: ML_SERVICE_URL
             value: "http://ml-api:8000"
+          - name: DATA_SERVICE_URL
+            value: "http://data-svc:8082"
           readinessProbe:
             httpGet:
               path: /healthz

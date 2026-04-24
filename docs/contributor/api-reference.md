@@ -9,7 +9,7 @@ The browser reaches the system through Traefik ingress on
 |------------|----------------|-----------------|---------------|
 | `/` | frontend | static files from Nginx | No |
 | `/auth/*` | api-gateway | proxied to `auth-svc` | No |
-| `/api/*` | api-gateway | handled in gateway, may call `ml-api` | Yes |
+| `/api/*` | api-gateway | handled in gateway, may call `ml-api` and `data-svc` | Yes |
 
 `/healthz` endpoints exist on individual services, but they are not routed
 through the current ingress manifest.
@@ -207,9 +207,11 @@ The gateway accepts either of these request shapes.
 
 ```json
 {
+  "AssessmentID": "uuid",
   "RiskPercent": 0.23,
   "Category": "low",
-  "Message": "Low risk detected. No immediate action required."
+  "Message": "Low risk detected. No immediate action required.",
+  "GeneratedAt": "2026-04-23T12:00:00Z"
 }
 ```
 
@@ -217,9 +219,34 @@ The gateway accepts either of these request shapes.
 
 - `RiskPercent` is returned as a `0..1` float
 - the frontend formats the value as percent for display
-- `api-gateway` does not persist results to PostgreSQL
+- `api-gateway` persists the assessment through `data-svc`
 - the current gateway forwards the parsed ML response body and does not
   preserve the upstream ML status code
+
+### GET /api/history
+
+Returns the authenticated user's assessment history ordered from newest to
+oldest.
+
+**Response (200)**
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "features": {
+        "BMI": 27.5
+      },
+      "risk_percent": 0.23,
+      "category": "low",
+      "message": "Low risk detected. No immediate action required.",
+      "created_at": "2026-04-23T12:00:00Z"
+    }
+  ],
+  "count": 1
+}
+```
 
 ### GET /api/features
 
@@ -297,6 +324,21 @@ returns:
   "Message": "Low risk detected. No immediate action required."
 }
 ```
+
+### data-svc
+
+`GET /healthz` returns:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+Internal runtime endpoints used by `api-gateway`:
+
+- `POST /internal/assessments`
+- `GET /internal/users/:userId/assessments`
 
 ## Accessing Internal Health Endpoints
 

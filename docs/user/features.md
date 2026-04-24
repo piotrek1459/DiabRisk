@@ -40,10 +40,10 @@ After submitting the form, the application displays:
 - session-based logout
 - the risk-assessment form
 - immediate display of the latest result
+- assessment history for the current user
 
 ## What Is Not Available in the Current UI
 
-- assessment history
 - report download
 - CSV or JSON export
 - account deletion screen
