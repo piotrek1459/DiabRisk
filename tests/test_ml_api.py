@@ -12,6 +12,8 @@ FEATURE_NAMES = ["HighBP", "BMI", "MentHlth", "PhysHlth", "Age"]
 
 
 class FakeModel:
+    classes_ = np.array([0, 1])
+
     def __init__(self, at_risk_probability):
         self.at_risk_probability = at_risk_probability
         self.seen_X = None
@@ -37,9 +39,10 @@ class MLApiTests(unittest.TestCase):
         ml_api.MODEL_PATH = self.original_model_path
         ml_api.CANDIDATES = self.original_candidates
 
-    def set_fake_artifact(self, model):
+    def set_fake_artifact(self, model, model2=None):
         ml_api._artifact = {
             "model1": model,
+            "model2": model2,
             "feature_names": FEATURE_NAMES,
             "model_features": "processed",
             "api_input_features": "raw",
@@ -134,6 +137,16 @@ class MLApiTests(unittest.TestCase):
                 self.assertAlmostEqual(response.RiskPercent, probability)
                 self.assertEqual(response.Category, category)
                 self.assertTrue(response.Message)
+
+    def test_predict_uses_weighted_cascade_risk_when_second_stage_exists(self):
+        model1 = FakeModel(at_risk_probability=0.8)
+        model2 = FakeModel(at_risk_probability=0.25)
+        self.set_fake_artifact(model1, model2=model2)
+
+        response = ml_api.predict(ml_api.PredictRequest(features=self.valid_features()))
+
+        self.assertAlmostEqual(response.RiskPercent, 0.7)
+        self.assertEqual(response.Category, "medium")
 
     def test_prepare_X_for_model_scales_raw_request_features(self):
         features = self.valid_features()

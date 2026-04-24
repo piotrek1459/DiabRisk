@@ -68,6 +68,38 @@ def prepare_X_for_model(features: Dict[str, Any], feature_names: list[str]):
     return apply_training_scaling(X, feature_names)
 
 
+def positive_class_probability(model, X, positive_class=1) -> float:
+    probabilities = model.predict_proba(X)[0]
+    classes = getattr(model, "classes_", None)
+
+    if classes is None:
+        return float(probabilities[1])
+
+    matches = np.where(classes == positive_class)[0]
+    if len(matches) == 0:
+        raise RuntimeError(f"Model does not expose class {positive_class!r}")
+
+    return float(probabilities[matches[0]])
+
+
+def calculate_risk_percent(artifact: dict, X) -> float:
+    p_at_risk = positive_class_probability(artifact["model1"], X, positive_class=1)
+
+    model2 = artifact.get("model2")
+    if model2 is None:
+        return p_at_risk
+
+    p_prediabetes_given_at_risk = positive_class_probability(
+        model2,
+        X,
+        positive_class=1,
+    )
+    p_prediabetes = p_at_risk * p_prediabetes_given_at_risk
+    p_diabetes = p_at_risk * (1.0 - p_prediabetes_given_at_risk)
+
+    return p_diabetes + 0.5 * p_prediabetes
+
+
 def load_artifact() -> dict:
     global MODEL_PATH, _artifact
     if _artifact is None:
@@ -130,12 +162,11 @@ def features():
 def predict(req: PredictRequest):
     art = load_artifact()
 
-    model1 = art["model1"]
     feature_names = art["feature_names"]
 
     X = prepare_X_for_model(req.features, feature_names)
 
-    risk_score = model1.predict_proba(X)[0, 1]
+    risk_score = calculate_risk_percent(art, X)
 
     # --- decision logic ---
     if risk_score > 0.80:
