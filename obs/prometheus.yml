@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  # DiabRisk services exposed locally, for example with kubectl port-forward.
+  # Each service must expose a Prometheus-compatible /metrics endpoint.
+  - job_name: diabrisk-api-gateway
+    static_configs:
+      - targets:
+          - localhost:8080
+
+  - job_name: diabrisk-auth-svc
+    static_configs:
+      - targets:
+          - localhost:8081
+
+  - job_name: diabrisk-data-svc
+    static_configs:
+      - targets:
+          - localhost:8082
+
+  - job_name: diabrisk-ml-api
+    static_configs:
+      - targets:
+          - localhost:8000

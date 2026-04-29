@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // authMiddlewareWithConfig validates the session by calling auth-svc.
@@ -59,6 +60,7 @@ func createRouter() *gin.Engine {
 func createRouterWithConfig(config serviceConfig) *gin.Engine {
 	r := gin.Default()
 	handler := newGatewayHandler(config)
+	r.Use(prometheusMiddleware())
 
 	// CORS for local dev (Svelte on :5173)
 	r.Use(cors.New(cors.Config{
@@ -74,6 +76,7 @@ func createRouterWithConfig(config serviceConfig) *gin.Engine {
 			"status": "ok",
 		})
 	})
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Auth routes - proxy to auth-svc (no auth required)
 	authRoutes := r.Group("/auth")

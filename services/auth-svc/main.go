@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -86,6 +87,7 @@ func main() {
 	}()
 
 	r := gin.Default()
+	r.Use(prometheusMiddleware())
 
 	// CORS setup for local dev (Frontend on :5173, other services on k3d)
 	r.Use(cors.New(cors.Config{
@@ -99,6 +101,7 @@ func main() {
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	r.POST("/auth/register", handleRegister)
 	r.POST("/auth/login", handleLogin)

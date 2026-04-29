@@ -87,8 +87,8 @@ if ($clusterList -match "^$ClusterName\s") {
     }
 }
 
-Write-Host "Creating k3d cluster '$ClusterName' with port 80 mapped..."
-& k3d cluster create $ClusterName --api-port 6443 -p "80:80@loadbalancer"
+Write-Host "Creating k3d cluster '$ClusterName' with ports 80, 3001 and 9091 mapped..."
+& k3d cluster create $ClusterName --api-port 6443 -p "80:80@loadbalancer" -p "3001:3000@loadbalancer" -p "9091:9090@loadbalancer"
 if ($LASTEXITCODE -ne 0) {
     throw "Nie udało się utworzyć klastra k3d."
 }
@@ -252,6 +252,10 @@ if (-not (Retry-KubectlApplyFile "deploy/k8s/ingress.yaml")) {
     throw "Nie udało się wdrożyć ingress.yaml."
 }
 
+if (-not (Retry-KubectlApplyFile "deploy/k8s/monitoring.yaml")) {
+    throw "Failed to deploy monitoring.yaml."
+}
+
 Write-Step "Waiting for deployments to be ready"
 
 Wait-DeploymentRollout -DeploymentName "data-svc" -TimeoutSeconds 120
@@ -259,6 +263,8 @@ Wait-DeploymentRollout -DeploymentName "auth-svc" -TimeoutSeconds 120
 Wait-DeploymentRollout -DeploymentName "ml-api" -TimeoutSeconds 120
 Wait-DeploymentRollout -DeploymentName "api-gateway" -TimeoutSeconds 120
 Wait-DeploymentRollout -DeploymentName "frontend" -TimeoutSeconds 120
+Wait-DeploymentRollout -DeploymentName "prometheus" -TimeoutSeconds 120
+Wait-DeploymentRollout -DeploymentName "grafana" -TimeoutSeconds 180
 
 Write-Step "Running database migrations"
 Write-Host "Waiting for data-svc to be fully ready..."
@@ -301,18 +307,24 @@ Write-Host ""
 Write-Host "Setup complete!"
 Write-Host ""
 Write-Host "Access the application at: http://localhost"
+Write-Host "Prometheus: http://localhost:9091"
+Write-Host "Grafana: http://localhost:3001"
+Write-Host "Grafana login: admin / admin"
 Write-Host ""
 Write-Host "Default admin credentials:"
 Write-Host "  Email: $adminEmail"
 Write-Host "  Password: $adminPassword"
 Write-Host ""
-Write-Host "API Endpoints:"
-Write-Host "  Auth Service: http://localhost/auth"
-Write-Host "  API Gateway: http://localhost/api"
+
+
+Write-Host "  Prometheus: http://localhost:9091"
+Write-Host "  Grafana: http://localhost:3001"
 Write-Host ""
 Write-Host "To view logs:"
 Write-Host "  kubectl logs -f -l app=api-gateway"
 Write-Host "  kubectl logs -f -l app=auth-svc"
 Write-Host "  kubectl logs -f -l app=data-svc"
 Write-Host "  kubectl logs -f -l app=postgres"
+Write-Host "  kubectl logs -f -l app=prometheus"
+Write-Host "  kubectl logs -f -l app=grafana"
 Write-Host ""

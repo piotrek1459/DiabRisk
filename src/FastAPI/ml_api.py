@@ -3,9 +3,11 @@ from typing import Any, Dict, Optional
 
 import os
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel, Field
 from joblib import load
+from time import perf_counter
 
 
 # --- scaler data ---
@@ -131,6 +133,50 @@ def build_X(features: Dict[str, Any], feature_names: list[str]) -> np.ndarray:
 # --- FastAPI ---
 app = FastAPI(title="DiabRisk ML Service", version="1.0")
 
+HTTP_REQUESTS_TOTAL = Counter(
+    "diabrisk_ml_api_http_requests_total",
+    "Total number of HTTP requests handled by ml-api.",
+    ["method", "route", "status"],
+)
+HTTP_REQUEST_DURATION_SECONDS = Histogram(
+    "diabrisk_ml_api_http_request_duration_seconds",
+    "HTTP request duration in seconds for ml-api.",
+    ["method", "route", "status"],
+)
+HTTP_RESPONSE_SIZE_BYTES = Histogram(
+    "diabrisk_ml_api_http_response_size_bytes",
+    "HTTP response size in bytes for ml-api.",
+    ["method", "route", "status"],
+    buckets=(100, 500, 1000, 5000, 10000, 50000, 100000, 500000, float("inf")),
+)
+PREDICTIONS_TOTAL = Counter(
+    "diabrisk_ml_api_predictions_total",
+    "Total number of risk predictions by resulting category.",
+    ["category"],
+)
+
+
+@app.middleware("http")
+async def prometheus_metrics_middleware(request: Request, call_next):
+    start = perf_counter()
+    response = await call_next(request)
+
+    route = "unmatched"
+    route_obj = request.scope.get("route")
+    if route_obj is not None:
+        route = getattr(route_obj, "path", route)
+
+    status = str(response.status_code)
+    labels = [request.method, route, status]
+    HTTP_REQUESTS_TOTAL.labels(*labels).inc()
+    HTTP_REQUEST_DURATION_SECONDS.labels(*labels).observe(perf_counter() - start)
+
+    content_length = response.headers.get("content-length")
+    if content_length is not None:
+        HTTP_RESPONSE_SIZE_BYTES.labels(*labels).observe(float(content_length))
+
+    return response
+
 
 class PredictRequest(BaseModel):
     features: Dict[str, Any] = Field(
@@ -147,6 +193,11 @@ class PredictResponse(BaseModel):
 @app.get("/healthz")
 def healthz():
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/features")
@@ -178,6 +229,8 @@ def predict(req: PredictRequest):
     else:
         category = "low"
         message = "Low risk detected. No immediate action required."
+
+    PREDICTIONS_TOTAL.labels(category=category).inc()
 
     return PredictResponse(
         RiskPercent=risk_score,
