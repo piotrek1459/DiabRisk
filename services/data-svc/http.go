@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type dataServiceHandler struct {
@@ -19,9 +21,10 @@ func newDataServiceHandler(repository assessmentRepository) dataServiceHandler {
 func (h dataServiceHandler) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", h.handleHealthz)
+	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/internal/assessments", h.handleCreateAssessment)
 	mux.HandleFunc("/internal/users/", h.handleUserRoutes)
-	return mux
+	return metricsMiddleware(mux)
 }
 
 func (h dataServiceHandler) handleHealthz(w http.ResponseWriter, _ *http.Request) {

@@ -47,10 +47,12 @@ if k3d cluster list | grep -q "^$CLUSTER_NAME "; then
   k3d cluster delete "$CLUSTER_NAME"
 fi
 
-echo "Creating k3d cluster '$CLUSTER_NAME' with port 80 mapped..."
+echo "Creating k3d cluster '$CLUSTER_NAME' with ports 80, 3001 and 9091 mapped..."
 k3d cluster create "$CLUSTER_NAME" \
   --api-port 6443 \
-  -p "80:80@loadbalancer"
+  -p "80:80@loadbalancer" \
+  -p "3001:3000@loadbalancer" \
+  -p "9091:9090@loadbalancer"
 echo "Cluster created successfully!"
 
 # --- Wait for API server ---
@@ -147,6 +149,7 @@ retry_kubectl_apply_file "deploy/k8s/api-gateway.yaml"
 retry_kubectl_apply_file "deploy/k8s/ml-api.yaml"
 retry_kubectl_apply_file "deploy/k8s/frontend.yaml"
 retry_kubectl_apply_file "deploy/k8s/ingress.yaml"
+retry_kubectl_apply_file "deploy/k8s/monitoring.yaml"
 
 # --- Wait for deployments ---
 
@@ -157,6 +160,8 @@ kubectl rollout status deployment/auth-svc --timeout=120s
 kubectl rollout status deployment/ml-api --timeout=120s
 kubectl rollout status deployment/api-gateway --timeout=120s
 kubectl rollout status deployment/frontend --timeout=120s
+kubectl rollout status deployment/prometheus --timeout=120s
+kubectl rollout status deployment/grafana --timeout=180s
 
 # --- Database migrations ---
 
@@ -180,14 +185,19 @@ echo
 echo "Setup complete!"
 echo
 echo "Access the application at: http://localhost"
+echo "Prometheus: http://localhost:9091"
+echo "Grafana: http://localhost:3001"
+echo "Grafana login: admin / admin"
 echo
 echo "Default admin credentials:"
 echo "  Email: $ADMIN_EMAIL"
 echo "  Password: $ADMIN_PASSWORD"
 echo
-echo "API Endpoints:"
-echo "  Auth Service: http://localhost/auth"
-echo "  API Gateway:  http://localhost/api"
+
+
+
+echo "  Prometheus:   http://localhost:9091"
+echo "  Grafana:      http://localhost:3001"
 echo
 echo "To view logs:"
 echo "  kubectl logs -f -l app=api-gateway"
@@ -195,4 +205,6 @@ echo "  kubectl logs -f -l app=auth-svc"
 echo "  kubectl logs -f -l app=data-svc"
 echo "  kubectl logs -f -l app=postgres"
 echo "  kubectl logs -f -l app=ml-api"
+echo "  kubectl logs -f -l app=prometheus"
+echo "  kubectl logs -f -l app=grafana"
 echo

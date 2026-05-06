@@ -14,6 +14,7 @@ The install scripts apply these manifests during local setup:
 - `ml-api.yaml`
 - `frontend.yaml`
 - `ingress.yaml`
+- `monitoring.yaml`
 
 The supported entrypoints for local deployment are:
 
@@ -50,6 +51,7 @@ scripts also create these secret objects directly during deployment.
 | `ml-api.yaml` | ML service deployment, service, and model-path config |
 | `frontend.yaml` | frontend deployment and service |
 | `ingress.yaml` | Traefik ingress for `localhost` |
+| `monitoring.yaml` | Prometheus and Grafana deployments, services, and provisioning |
 | `secrets.yaml` | local default secrets, useful when applying resources manually |
 | `configmap.yaml` | legacy file, not applied by the current install scripts |
 
@@ -60,9 +62,14 @@ With the default manifests applied:
 - `http://localhost/` -> frontend
 - `http://localhost/auth/*` -> `api-gateway` -> `auth-svc`
 - `http://localhost/api/*` -> `api-gateway` -> `ml-api`
+- `http://localhost:9091/` -> Prometheus through the k3d load balancer
+- `http://localhost:3001/` -> Grafana through the k3d load balancer
 
 `/healthz` is implemented inside services, but it is not exposed through
 the current ingress manifest.
+
+Grafana is provisioned with Prometheus as the default data source.
+Default local credentials are `admin` / `admin`.
 
 ## Useful Commands
 
@@ -75,6 +82,8 @@ kubectl logs -f -l app=auth-svc
 kubectl logs -f -l app=data-svc
 kubectl logs -f -l app=ml-api
 kubectl logs -f -l app=postgres
+kubectl logs -f -l app=prometheus
+kubectl logs -f -l app=grafana
 ```
 
 ## Rebuilding a Single Service
